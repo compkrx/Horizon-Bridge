@@ -71,7 +71,7 @@ function WorkspaceResults({item, result}: {item: Item; result: BrowserResult}) {
     files: Object.entries(result.files).map(([path, value]) => ({ path, size: new TextEncoder().encode(value).length })),
   }
   const match = report.resources.entries.filter((entry) => (!exportedOnly || entry.exported) && entry.path.toLowerCase().includes(query.toLowerCase()))
-  return <div className="browser-results">
+  return <div className="browser-results" id="browser-results">
     <section className="panel result-section" aria-label="Archive overview">
       <div className="panel-title"><Archive size={20} /><h2 className="break-all">{item.file.name}</h2><span className="pill ml-auto">In-browser</span></div>
       <dl className="browser-metrics">
@@ -156,6 +156,7 @@ export default function Studio() {
   }
 
   const count = items.filter((item) => item.stage === 'queued').length
+  const ready = items.filter((item) => item.result).length
   return <>
     <a href="#studio" className="skip-link">Skip to converter</a>
     <header className="topbar browser-header"><div className="site-width topbar-inner">
@@ -187,9 +188,13 @@ export default function Studio() {
             <button className="btn outline compact" type="button" key={name} onClick={() => void addSample(name)} disabled={busy || !!sample || items.length >= maxFiles}>{title}</button>)}</div>
           {items.length > 0 && <ul className="batch-list" aria-label="Conversion queue">{items.map((item) => <li key={item.id}>
             <Archive size={17} /><div><strong>{item.file.name}</strong><p>{bytes(item.file.size)} · {item.stage in labels ? labels[item.stage as Stage] : item.stage}</p>{item.error && <p className="error" role="alert">{item.error}</p>}</div>
-            {item.result ? <button className="btn outline compact" type="button" aria-pressed={selected === item.id} onClick={() => setSelected(item.id)}>View result</button>
+            {item.result ? <button className="btn outline compact" type="button" aria-pressed={selected === item.id} onClick={() => {
+              setSelected(item.id)
+              requestAnimationFrame(() => document.getElementById('browser-results')?.scrollIntoView({block: 'start'}))
+            }}>View result</button>
               : <button className="btn plain compact" type="button" aria-label={`Remove ${item.file.name}`} disabled={busy} onClick={() => setItems((list) => list.filter((entry) => entry.id !== item.id))}><X size={17} /></button>}
           </li>)}</ul>}
+          <p className="sr-only" role="status">{ready > 0 ? `${ready} of ${items.length} results ready.` : ''}</p>
           {error && <p className="error" role="alert">{error}</p>}
           <label className="permission browser-permission"><input type="checkbox" checked={authorized} disabled={busy} onChange={(event) => setAuthorized(event.target.checked)} /> I own these mods or have permission to convert them.</label>
           <div className="browser-actions">
