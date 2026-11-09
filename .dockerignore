@@ -1,0 +1,13 @@
+.git
+.env
+.horizonbridge
+.test-fixtures
+fixture-output
+.venv
+**/__pycache__
+**/node_modules
+**/dist
+**/.pytest_cache
+**/.wrangler
+**/test-results
+frontend/public/browser

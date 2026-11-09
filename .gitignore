@@ -1,0 +1,16 @@
+.env
+.dev.vars
+.dev.vars.*
+.horizonbridge/
+.test-fixtures/
+fixture-output/
+.venv/
+__pycache__/
+.pytest_cache/
+node_modules/
+dist/
+.wrangler/
+playwright-report/
+test-results/
+frontend/public/browser/
+.test-fixtures/

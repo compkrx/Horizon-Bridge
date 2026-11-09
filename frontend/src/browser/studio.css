@@ -1,0 +1,54 @@
+.browser-header .topbar-inner { justify-content: space-between; gap: 16px; }
+.browser-nav { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; font-size: .87rem; color: var(--muted, #afc1b6); }
+.browser-nav a, .browser-main aside a, .browser-main ~ footer a { display: inline-flex; align-items: center; gap: 6px; }
+.browser-nav a:hover, .browser-main aside a:hover, .browser-main ~ footer a:hover { color: #a8fac6; }
+.browser-main { padding-bottom: 48px; }
+.browser-hero { display: grid; grid-template-columns: 1.24fr 1fr; gap: clamp(20px, 5vw, 72px); align-items: center; padding: 72px 0 58px; }
+.browser-hero h1 { color: #eef7f0; font-size: clamp(2.8rem, 7vw, 6.2rem); line-height: .98; letter-spacing: -.075em; font-weight: 780; margin: 16px 0 22px; }
+.browser-hero h1 em { font-style: normal; color: #9ff5bc; }
+.browser-hero p:not(.eyebrow) { max-width: 52ch; color: #aebfb4; font-size: clamp(1rem, 2vw, 1.18rem); }
+.browser-hero .hero-slash { background: none; border-radius: 0; box-shadow: none; width: auto; height: auto; }
+.browser-hero-card { padding: 20px; min-width: 0; background: radial-gradient(ellipse at 69% 47%, #183c29 0%, #111b15 64%); }
+.hero-engine { display: flex; gap: 18px; align-items: center; justify-content: center; padding: 55px 8px; color: #a9f7c5; background-image: radial-gradient(#446750 1px, transparent 1px); background-size: 18px 18px; margin: 16px 0; }
+.hero-engine span { width: 32%; border-top: 2px dashed #54866c; }
+.browser-layout { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(235px, 1fr); gap: 22px; align-items: start; scroll-margin-top: 84px; }
+.browser-layout aside p, .browser-layout aside li { color: #aebfb4; font-size: .9rem; }
+.browser-layout aside a { color: #a3edbd; font-size: .85rem; margin-top: 14px; }
+.browser-output-list { display: grid; gap: 7px; padding-left: 18px; list-style: disc; }
+.browser-drop { display: grid; place-items: center; align-content: center; min-height: 194px; gap: 9px; padding: 14px; border: 1px dashed #446752; border-radius: 12px; background: #101b14; text-align: center; }
+.browser-drop.dragging { border-color: #a5f8c1; background: #183325; }
+.browser-drop svg { color: #a5f8c1; }
+.browser-examples { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+.browser-examples .eyebrow { margin-right: 3px; }
+.batch-list { display: grid; margin-top: 15px; list-style: none; }
+.batch-list li { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 12px 0; border-top: 1px solid #2a392f; }
+.batch-list li > svg { color: #9beab7; }
+.batch-list strong, .batch-list p { overflow-wrap: anywhere; }
+.batch-list p { color: #aebfb4; font-size: .8rem; }
+.browser-permission { display: flex; align-items: baseline; gap: 8px; margin-top: 14px; }
+.browser-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
+.browser-results { margin-top: 32px; }
+.browser-results > .panel { margin-bottom: 14px; }
+.browser-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 12px; }
+.browser-metrics div { border: 1px solid #2a392f; border-radius: 10px; padding: 12px; }
+.browser-metrics dt { color: #aebfb4; font-size: .8rem; }
+.browser-metrics dd { color: #a9f7c5; font-weight: 650; font-size: 1.15rem; margin-top: 3px; }
+.browser-inventory { margin-top: 18px; }
+.browser-inventory summary { cursor: pointer; color: #a9f7c5; }
+.inventory-controls { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+.inventory-controls label { display: flex; align-items: center; gap: 8px; }
+.inventory-controls input:not([type=checkbox]) { padding: 5px 8px; border: 1px solid #2f4b3a; border-radius: 6px; max-width: 100%; }
+.inventory-list { max-height: 250px; overflow: auto; font-size: .8rem; }
+.inventory-list li { display: flex; justify-content: space-between; gap: 12px; overflow-wrap: anywhere; padding: 6px 2px; border-bottom: 1px solid #2a392f; }
+.browser-compat { margin-top: 32px; scroll-margin-top: 84px; }
+@media (max-width: 760px) {
+  .browser-hero, .browser-layout { grid-template-columns: 1fr; }
+  .browser-hero { padding-top: 40px; }
+  .browser-hero-card { display: none; }
+  .browser-header .service-pill { display: none; }
+}
+@media (max-width: 450px) {
+  .browser-header .topbar-inner, .browser-nav { gap: 8px; }
+  .browser-nav a { font-size: .75rem; }
+  .browser-nav svg { display: none; }
+}

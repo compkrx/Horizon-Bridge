@@ -1,0 +1,55 @@
+# Build with: docker build -f infra/Dockerfile.toolchain -t horizonbridge-toolchain:26.3 .
+FROM rust:1.99.1-trixie AS build
+
+ARG HORIZON_REV=fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca
+ARG MIXINS_REV=5a64af938ec86b00d53d16a408aabc0038fb3e57
+ARG REGISTRY_REV=e2e833d68c3d18ea75af537e73a3bd2bd2bd21fb
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      clang cmake libasound2-dev libudev-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Use the same revisions that the converter identifies and validates. Keep the
+# downloaded crates immutable at runtime. Each conversion writes its own Cargo home.
+RUN set -eux; \
+    mkdir -p /opt/horizon/source /tmp/horizon /tmp/registry; \
+    git -C /tmp/horizon init; \
+    git -C /tmp/horizon fetch --depth 1 https://github.com/horizon-rust/horizon "$HORIZON_REV"; \
+    git -C /tmp/horizon archive FETCH_HEAD | tar -xf - -C /opt/horizon/source; \
+    find /opt/horizon/source -type l -delete; \
+    printf '%s' "$HORIZON_REV" > /opt/horizon/source/.horizon-revision; \
+    git -C /tmp/registry init; \
+    git -C /tmp/registry fetch --depth 1 https://github.com/horizon-rust/horizon-mods "$REGISTRY_REV"; \
+    git -C /tmp/registry show FETCH_HEAD:native/tools/native.py > /opt/horizon/native.py; \
+    cd /opt/horizon; \
+    printf '%s\n' \
+      '037f761ed32667825680bd0b607d04138fb466a6080772310dd304003aeb6ef9  source/crates/horizon-client/src/game/native_hooks.rs' \
+      'ed70b2aa7ff3ad35a40aee8e65c4471670551dd11d02ac0269ff9fff7c6be068  source/Cargo.lock' \
+      '40aebf8f87d90fad0db7a6a34fdd95fd3a2f88330681053b6d74751860a3077b  native.py' \
+      | sha256sum -c -; \
+    cd source; \
+    cargo vendor --locked /opt/horizon/vendor > /opt/horizon/vendor-config.toml; \
+    CARGO_TARGET_DIR=/tmp/horizon-target cargo build --locked --offline --release \
+      --config /opt/horizon/vendor-config.toml -p cargo-horizon-mod -p horizon-port-pack; \
+    install /tmp/horizon-target/release/cargo-horizon-mod /usr/local/bin/; \
+    install /tmp/horizon-target/release/horizon-port-pack /usr/local/bin/; \
+    cargo install --locked --git https://github.com/horizon-rust/horizon-mixins \
+      --rev "$MIXINS_REV" --root /tmp/mixins horizon-mixins-cli; \
+    install /tmp/mixins/bin/horizon-mixins /usr/local/bin/
+
+FROM rust:1.99.1-trixie
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      clang cmake libasound2-dev libudev-dev pkg-config python3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && rustup component add rustfmt
+
+COPY --from=build /usr/local/bin/cargo-horizon-mod /usr/local/bin/horizon-port-pack /usr/local/bin/horizon-mixins /usr/local/bin/
+COPY --from=build /opt/horizon /opt/horizon
+
+ENV HORIZONBRIDGE_HORIZON_SOURCE=/opt/horizon/source \
+    HORIZONBRIDGE_NATIVE_SCRIPT=/opt/horizon/native.py \
+    HORIZONBRIDGE_CARGO_CONFIG=/opt/horizon/vendor-config.toml \
+    HORIZONBRIDGE_ENABLE_NATIVE=1 \
+    HORIZONBRIDGE_ENABLE_ASSETS=1 \
+    CARGO_NET_OFFLINE=true

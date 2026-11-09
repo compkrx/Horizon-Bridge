@@ -1,0 +1,52 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: api
+    ports:
+      - "127.0.0.1:8788:8788"
+    environment:
+      HB_PROXY_SECRET: ${HB_PROXY_SECRET:-}
+      HB_OLLAMA_URL: ${HB_OLLAMA_URL:-}
+      HB_OLLAMA_MODEL: ${HB_OLLAMA_MODEL:-}
+      HB_OLLAMA_TOKEN: ${HB_OLLAMA_TOKEN:-}
+      HB_RETENTION_HOURS: ${HB_RETENTION_HOURS:-12}
+      HB_VINEFLOWER_JAR: enabled-on-processor
+      HORIZONBRIDGE_ENABLE_NATIVE: ${HORIZONBRIDGE_ENABLE_NATIVE:-1}
+    volumes:
+      - jobs:/data
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 384m
+    pids_limit: 96
+    init: true
+    restart: unless-stopped
+  processor:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile
+      target: ${HB_PROCESSOR_TARGET:-full}
+    environment:
+      HB_JOB_TIMEOUT: ${HB_JOB_TIMEOUT:-1200}
+      HB_RETENTION_HOURS: ${HB_RETENTION_HOURS:-12}
+    network_mode: none
+    volumes:
+      - jobs:/data
+    tmpfs:
+      - /scratch:rw,nosuid,nodev,size=${HB_SCRATCH_SIZE:-8g},mode=1777
+      - /tmp:rw,nosuid,nodev,noexec,size=32m,mode=1777
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: ${HB_PROCESSOR_CPUS:-4}
+    mem_limit: ${HB_PROCESSOR_MEMORY:-12g}
+    pids_limit: 256
+    ulimits:
+      core: 0
+      nofile: 1024
+    init: true
+    restart: unless-stopped
+volumes:
+  jobs:

@@ -1,0 +1,12 @@
+# Security and privacy
+
+- Submission requires an affirmative conversion-rights declaration. The service retains recovered original license and notice files with exports. Users are responsible for any additional obligations before distribution.
+- Uploads are streamed to disk with a 32 MiB cap and a size-bound, time-limited job capability. Archive validation applies bounded central-directory, expansion, path, member, and bytecode checks. The Java mod is never loaded or executed. Vineflower receives the archive as data.
+- The browser stores a job token in session storage. The database stores a SHA-256 token digest. Each job route checks the token. Private preview and download responses send `Cache-Control: no-store, private`. The application does not log job tokens or write them to URLs.
+- The Docker processor is unprivileged, disconnected from the network, and runs with dropped capabilities and a read-only root filesystem. Each job receives separate scratch space and a Landlock file-access allowlist. The queue worker owns the persistent volume. The child process receives the current input copy and read-only tooling paths. Origin and model credentials stay in the API process.
+- The processor stops the process group on cancellation and timeout. Docker constrains CPU, memory, and processes. Scratch has a separate size ceiling. The queue limits new jobs by network and applies both global active and retained job ceilings. On public deployments, use reverse proxy connection limits and monitor the dedicated disk quota.
+- Uploads, reports, and artifacts expire after 12 hours by default. The cleanup loop removes expired records and per-job files. Do not back up the temporary jobs volume if expiry is meant to remove all service copies.
+- Opt-in AI advice sends a bounded report summary to the administrator-configured endpoint. Advice remains untrusted text. The pipeline does not incorporate it into source or run it. The offline worker can produce conversion results with no AI service.
+- A native bundle contains executable Rust source. The player's Horizon launcher builds it into the client with the player's permissions. Review the bundle, original attribution, and source before installation. A compile or package check establishes only the scope described in the report.
+
+The host-native development script runs without the production filesystem and network restrictions. Keep it loopback-only and use trusted fixtures. For public uploads, run the Linux Docker processor and verify the sandbox startup check.
