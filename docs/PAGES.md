@@ -2,7 +2,9 @@
 
 The [HorizonRelay studio](https://horizonrelay.github.io/) serves static assets. It starts a WebAssembly worker on demand and performs conversion on the device. The site downloads the worker, the pinned Pyodide runtime, and the Python modules from the same origin. The three optional examples are original fixtures generated at build time. The studio makes no upload requests, stores no JARs across sessions, and needs no service account or API key.
 
-Studio, Versions, Packages, AI, Guide, and Look each have their own link. Switching pages keeps the current tab’s queue and results. Reloading starts a new conversion session.
+Studio, Versions, Packages, AI, Guide, and Look have direct URLs at `/studio/`, `/versions/`, `/packages/`, `/ai/`, `/guide/`, and `/look/`. A persistent sidebar on desktop and a compact navigation bar on mobile identify the current page. Older hash bookmarks still work. Switching pages keeps the current tab’s queue, package inspection, AI drafts, and results. Reloading starts a new conversion session.
+
+Versions has a searchable build list and selected-build details. Packages collects generated downloads from the session alongside the existing native package inspector. AI includes an explicit WebGPU adapter check. Guide has seven searchable walkthroughs. Look includes presets, glass and background controls, a motion preference, and reset.
 
 ## Capabilities
 
@@ -40,7 +42,7 @@ npx playwright install chromium
 npm run test:pages
 ```
 
-The production build uses relative static asset paths. In repository **Settings → Pages**, choose **GitHub Actions**. The workflow tests the engine and the built studio before deploying. The app and self-hosted code are under MIT. The runtime is separately licensed under MPL-2.0. [Pyodide source and notices](https://github.com/pyodide/pyodide/tree/314.0.7)
+The production build uses relative static asset paths and writes an HTML entry for each page so direct links and reloads work at organization and repository paths. In repository **Settings → Pages**, choose **GitHub Actions**. The workflow tests the engine and the built studio before deploying. The app and self-hosted code are under MIT. The runtime is separately licensed under MPL-2.0. [Pyodide source and notices](https://github.com/pyodide/pyodide/tree/314.0.7)
 
 ## Offline CLI
 

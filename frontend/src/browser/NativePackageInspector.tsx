@@ -90,6 +90,7 @@ export function NativePackageInspector({base, targets, selected, chooseTarget, b
       }} />
       {status && <button className="btn outline" type="button" onClick={() => {active.current?.(); setStatus('')}}>Cancel inspection</button>}
       {report && <button className="btn outline" type="button" onClick={() => saveReport(report)}><ArrowDownToLine size={16} /> Download package report</button>}
+      {!status && filename && <button className="btn plain" type="button" onClick={() => {setReport(undefined); setFilename(''); setQuery(''); setError('')}}>Clear package</button>}
       {filename && <span className="text-muted break-all">{filename}</span>}
     </div>
     {status && <p className="text-muted mt-3" role="status"><LoaderCircle size={16} className="spin inline" /> {status}</p>}

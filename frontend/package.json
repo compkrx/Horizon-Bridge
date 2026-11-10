@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "dev:pages": "node scripts/prepare-browser.mjs && vite --mode pages",
-    "build:pages": "node scripts/prepare-browser.mjs && tsc --noEmit && vite build --mode pages",
+    "build:pages": "node scripts/prepare-browser.mjs && tsc --noEmit && vite build --mode pages && node scripts/build-page-entries.mjs",
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "test:pages": "playwright test --config playwright.pages.config.ts"

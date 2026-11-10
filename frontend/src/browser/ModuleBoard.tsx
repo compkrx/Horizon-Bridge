@@ -24,7 +24,7 @@ const groups = [
 export function ModuleBoard({hasResults}: {hasResults: boolean}) {
   const [detail, setDetail] = useState('Point to a module or focus it to see what it does.')
   function tilt(event: PointerEvent<HTMLDivElement>) {
-    if (event.pointerType === 'touch' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (event.pointerType === 'touch' || document.documentElement.dataset.motion === 'off' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const box = event.currentTarget.getBoundingClientRect()
     event.currentTarget.style.setProperty('--relay-rx', `${(0.5 - (event.clientY - box.top) / box.height) * 11}deg`)
     event.currentTarget.style.setProperty('--relay-ry', `${((event.clientX - box.left) / box.width - 0.5) * 14}deg`)

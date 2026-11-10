@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Archive, ArrowDownToLine, ArrowRight, BookOpen, Code2, GitFork, Layers3, LoaderCircle, LockKeyhole, Plus, Search, UploadCloud, X } from 'lucide-react'
+import { Archive, ArrowDownToLine, ArrowRight, BookOpen, BrainCircuit, Code2, GitBranch, GitFork, Layers3, LoaderCircle, LockKeyhole, Package, Palette, Plus, Search, UploadCloud, X } from 'lucide-react'
 import type { Artifact, Job } from '../api'
 import { bytes, displayError } from '../format'
-import { Results, type ArtifactAccess } from '../Results'
+import { Results, TargetDetails, type ArtifactAccess } from '../Results'
 import type { BrowserResult, ConversionMode, NightlyCatalog, Stage, WorkerOutput } from './types'
 import { RewritePanel } from '../RewritePanel'
 import { runDeviceRewrite } from './run-device-rewrite'
@@ -10,17 +10,20 @@ import { ModuleBoard } from './ModuleBoard'
 import { NightlyPicker } from './NightlyPicker'
 import { NativePackageInspector } from './NativePackageInspector'
 import { Appearance } from './Appearance'
-import { pageHref, pages, usePage } from './pages'
+import { appBase, navigate, pageHref, pages, usePage } from './pages'
+import { Guide } from './Guide'
+import { DeviceCheck } from './DeviceCheck'
 import './studio.css'
 
 const repo = 'https://github.com/horizonrelay/horizonrelay.github.io'
-const base = new URL(import.meta.env.BASE_URL, window.location.href).href
+const base = appBase.href
 const catalogUrl = new URL('browser/nightlies.json', base).href
 const maxFiles = 12
 const maxSize = 32 * 1024 * 1024
 const labels = { loading: 'Loading engine', inspecting: 'Inspecting JAR', translating: 'Translating bytecode', packaging: 'Building downloads' }
 const modeLabels = { all: 'All supported conversions', basic: 'Basic functions only', inspect: 'Inspect only' } satisfies Record<ConversionMode, string>
 const examples = [{name: 'logic.jar', title: 'Java arithmetic'}, {name: 'asset.jar', title: 'Crafting recipe'}, {name: 'startup.jar', title: 'Fabric startup hook'}]
+const pageIcons = {studio: Layers3, versions: GitBranch, packages: Package, ai: BrainCircuit, guide: BookOpen, look: Palette}
 
 type Item = {id: string; file: File; authorized: boolean; stage: Stage | 'ready' | 'queued' | 'failed' | 'cancelled'; result?: BrowserResult; completedMode?: ConversionMode; error?: string}
 
@@ -213,6 +216,10 @@ export default function Studio() {
   const count = items.filter((item) => item.stage === 'queued').length
   const completed = items.filter((item) => item.result)
   const ready = completed.length
+  const activePage = pages.find((entry) => entry.id === page)!
+  const generated = completed.flatMap((item) => item.result!.artifacts
+    .filter((artifact) => artifact.kind !== 'report')
+    .map((artifact) => ({item, artifact, buffer: item.result!.downloads[artifact.name]})))
   return <>
     <a href="#page-content" className="skip-link" onClick={(event) => {
       event.preventDefault()
@@ -221,18 +228,23 @@ export default function Studio() {
     }}>Skip to content</a>
     <header className="topbar browser-header"><div className="site-width topbar-inner">
       <a href={pageHref('studio')} className="brand"><img src={new URL('bridge.svg', base).href} width="32" height="32" alt="" /><strong>Horizon<span>Relay</span></strong></a>
-      <nav className="browser-nav" aria-label="Primary">{pages.map(({id, label}) =>
-        <a key={id} href={pageHref(id)} aria-current={page === id ? 'page' : undefined}>{label}</a>)}</nav>
+      <span className="workspace-edition">Java → Horizon <span className="pill">Browser studio</span></span>
       <a className="service-pill" href={repo}><GitFork size={14} /> GitHub</a>
     </div></header>
-    <main className="site-width browser-main" id="page-content" ref={main} tabIndex={-1}>
+    <div className="relay-workspace">
+      <aside className="workspace-rail">
+        <p className="eyebrow rail-label">WORKSPACE</p>
+        <nav className="browser-nav" aria-label="Primary">{pages.map(({id, label, description}) => {
+          const Icon = pageIcons[id]
+          return <a key={id} href={pageHref(id)} aria-label={label} aria-current={page === id ? 'page' : undefined}><Icon size={19} /><span><strong>{label}</strong><small>{description}</small></span><ArrowRight size={14} className="rail-arrow" /></a>
+        })}</nav>
+        <div className="rail-session"><span className="eyebrow">THIS SESSION</span><dl><div><dt>Queued</dt><dd>{count}</dd></div><div><dt>Results</dt><dd>{ready}</dd></div></dl><p>{busy ? 'Conversion is running. You can browse the other pages.' : 'Files stay in this tab. Download your results before reloading.'}</p></div>
+        <a className="rail-help" href={pageHref('guide', 'start')}><BookOpen size={16} /> New here? Start the guide</a>
+      </aside>
+    <main className="browser-main" id="page-content" ref={main} tabIndex={-1}>
+      <nav className="workspace-breadcrumb" aria-label="Breadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><span aria-current="page">{activePage.label}</span></nav>
       <div className="browser-screen" hidden={page !== 'studio'}>
-        <section className="browser-hero"><div>
-          <p className="eyebrow hero-tag"><span /> OPEN SOURCE <span className="hero-slash">/</span> HORIZON 26.3</p>
-          <h1>Bring Java mods<br /> <em>to Horizon.</em></h1>
-          <p>Inspect a batch of Minecraft JARs, convert supported logic, and export Rust source or recipe bundles. Your files stay in this browser tab.</p>
-          <div className="hero-actions"><a className="btn accent" href="#studio">Open studio <ArrowRight size={16} /></a><a className="btn plain" href={repo}><GitFork size={16} /> View source</a></div>
-        </div><ModuleBoard hasResults={!!current?.result} /></section>
+        <PageIntro title="Studio" description="Add Java mods, choose a conversion mode, and review the generated code. Start with an example to try the workflow." />
         <div className="browser-layout" id="studio">
           <section className="panel result-section" aria-labelledby="studio-title">
             <div className="panel-title"><Layers3 size={22} /><h2 id="studio-title">Batch conversion studio</h2><span className="pill ml-auto">{items.length}/{maxFiles} JARs</span></div>
@@ -293,26 +305,74 @@ export default function Studio() {
             <section className="panel side-panel"><div className="side-title"><Code2 size={19} /><h2>Need native validation?</h2></div><p>The self-hosted edition runs the pinned Horizon build and can emit verified native bundles.</p><a href={`${repo}/blob/main/docs/HORIZON.md`}>Toolchain instructions <ArrowRight size={15} /></a></section></aside>
         </div>
         {current?.result && <WorkspaceResults key={current.id} item={current} result={current.result} />}
+        <section className="panel result-section explore-tools"><div><h2>Explore the tools</h2><p className="text-muted">Point to a module for a short description, then open its page.</p></div><ModuleBoard hasResults={!!current?.result} /></section>
       </div>
 
       <div className="browser-screen" hidden={page !== 'versions'}>
         <PageIntro title="Horizon versions" description="Choose the Nightly for your next conversion. Search recent builds and archived source revisions." />
-        <div className="panel result-section">
+        <div className="page-columns versions-layout"><div className="panel result-section">
           <NightlyPicker catalog={catalog} catalogError={catalogError} catalogUrl={catalogUrl} target={target} selectTarget={setTargetId} busy={busy} />
           <div className="browser-actions"><a className="btn accent" href={pageHref('studio', 'studio')}>Back to Studio <ArrowRight size={16} /></a></div>
-        </div>
+        </div><aside className="page-stack">
+          <section className="panel result-section">
+            <div className="panel-title"><GitBranch size={21} /><h2>Selected build</h2></div>
+            {target ? <>
+              <h3>{target.label}</h3>
+              <TargetDetails target={target} />
+              <p className="nightly-info mt-3">This target applies to the next conversion. Completed results keep the revision they used.</p>
+              <div className="browser-actions">
+                <a className="btn outline compact" href={target.evidence} target="_blank" rel="noreferrer">Release evidence ↗</a>
+                <button className="btn plain compact" disabled={busy || !catalog || target.id === catalog.current} onClick={() => catalog && setTargetId(catalog.current)}>Use current Nightly</button>
+              </div>
+            </> : <p className="text-muted">Choose a build after the catalog loads.</p>}
+          </section>
+          <section className="panel result-section">
+            <h2>Recent and archived</h2>
+            <p className="text-muted mt-2">Recent builds cover the last 30 UTC calendar days. As new builds arrive, older records move into the searchable archive. Source revision records are retained.</p>
+            <a className="text-link" href={pageHref('guide', 'compatibility')}>Understand compatibility <ArrowRight size={15} /></a>
+          </section>
+        </aside></div>
       </div>
 
       <div className="browser-screen" hidden={page !== 'packages'}>
         <PageIntro title="Packages" description="Inspect an existing Horizon package and compare its recorded revisions with your conversion target." />
+        <section className="panel result-section" aria-labelledby="session-downloads">
+          <div className="panel-title"><ArrowDownToLine size={21} /><h2 id="session-downloads">Downloads from this session</h2><span className="pill ml-auto">{generated.length}</span></div>
+          {generated.length ? <ul className="session-downloads">{generated.map(({item, artifact, buffer}) => <li key={`${item.id}-${artifact.name}`}>
+            <Package size={20} />
+            <div>
+              <strong>{artifact.name}</strong>
+              <p>{item.file.name} · {bytes(artifact.size)} · {item.result!.report.target.label}</p>
+              <span className="pill">{artifact.kind === 'source' ? 'Source project' : artifact.kind === 'hmod' ? 'Recipe candidate' : 'Native package'}</span>
+            </div>
+            <button className="btn outline compact" aria-label={`Save ${artifact.name}`} disabled={!buffer} onClick={() => {
+              if (buffer) download(buffer, artifact.name)
+            }}><ArrowDownToLine size={15} /> Download</button>
+          </li>)}</ul> : <div className="page-empty">
+            <Package size={28} />
+            <h3>Your converted files will appear here</h3>
+            <p>Start a conversion in Studio, then return to download its generated source projects and supported bundles.</p>
+            <a className="btn outline" href={pageHref('studio')}>Go to Studio <ArrowRight size={16} /></a>
+          </div>}
+        </section>
         <NativePackageInspector base={base} targets={targets} selected={target} busy={busy} chooseTarget={(item) => {
           setTargetId(item.id)
-          window.location.hash = pageHref('versions')
+          navigate('versions')
         }} />
+        <section className="panel result-section">
+          <h2>Which file do I need?</h2>
+          <dl className="format-reference">
+            <div><dt>Source ZIP</dt><dd>Generated Rust and porting notes to review, build, and extend.</dd></div>
+            <div><dt>.hmod</dt><dd>Candidate content or recipe bundle. Run the official package checker before testing.</dd></div>
+            <div><dt>.hnmod</dt><dd>Native Rust source package compiled by Horizon. Check its pins and review the code.</dd></div>
+          </dl>
+          <a className="text-link" href={pageHref('guide', 'guide-packages')}>Read the package guide <ArrowRight size={15} /></a>
+        </section>
       </div>
 
       <div className="browser-screen" hidden={page !== 'ai'}>
         <PageIntro title="AI rewrite" description="Review the JVM instructions for a converted JAR and generate a Rust draft on this device." />
+        <DeviceCheck />
         <section className="panel result-section" aria-labelledby="ai-source-title">
           <div className="panel-title"><Code2 size={21} /><h2 id="ai-source-title">Conversion result</h2></div>
           {ready ? <>
@@ -325,34 +385,25 @@ export default function Studio() {
             <div className="browser-actions"><a className="btn accent" href={pageHref('studio', 'studio')}>Open Studio <ArrowRight size={16} /></a></div>
           </>}
         </section>
-        {current?.result && <DeviceRewrite key={current.id} result={current.result} />}
+        {completed.map((item) => <div hidden={item.id !== selected} key={item.id}><DeviceRewrite result={item.result!} /></div>)}
         <section className="panel result-section browser-compat" id="self-hosted" aria-labelledby="self-hosted-title">
           <div className="panel-title"><BookOpen size={21} /><h2 id="self-hosted-title">Self-hosted AI</h2></div>
           <p className="text-muted">Run the local edition with Ollama or another compatible inference server. It can draft Rust from reconstructed Java as well as JVM methods.</p>
           <div className="browser-actions"><a className="btn outline" href={`${repo}/blob/main/docs/AI.md`}>Self-hosted setup guide <ArrowRight size={16} /></a></div>
+          <a className="text-link" href={pageHref('guide', 'guide-ai')}>Device requirements and walkthrough <ArrowRight size={15} /></a>
         </section>
       </div>
 
       <div className="browser-screen" hidden={page !== 'guide'}>
         <PageIntro title="Guide" description="Get started with a conversion and learn what to check before installing a package or building a Rust draft." />
-        <section className="panel result-section browser-compat relay-guide" id="guide" aria-labelledby="guide-title">
-          <div className="panel-title"><BookOpen size={21} /><h2 id="guide-title">Guides and notices</h2></div>
-          <details open><summary>Start a conversion</summary><p>Add a JAR or an example, choose the target Nightly and conversion mode, confirm your rights, then start the batch. Use the report to see which behaviors still need a manual port.</p></details>
-          <details><summary>Inspect a native package</summary><p>Open a .hnmod from the Packages tab to check its two revision pins, declared mixins, file inventory, and SHA-256 fingerprint. The inspector reads the archive locally. Use Horizon’s official package checker and a disposable instance for validation.</p></details>
-          <details id="guide-ai"><summary>Run an AI rewrite on your device</summary><p>After conversion, open the AI page and choose a completed result and a method. An initial model download is required. Leave the browser tab open. Mobile browsers may pause a background tab or a locked screen, and low-memory devices may fail to load the model.</p></details>
-          <details id="guide-local"><summary>Connect a self-hosted model</summary><p>Run the local edition with Ollama or a compatible inference server, enable AI for the job, and choose a reconstructed Java file or JVM method from the result.</p><a href={`${repo}/blob/main/docs/AI.md`}>Local AI setup ↗</a></details>
-          <details><summary>Understand validation</summary><p>AI outputs are Rust drafts. Review the selected source, check the target APIs, and compile or test in a disposable instance before integrating the draft into a native mod.</p></details>
-        </section>
-        <section className="panel result-section browser-compat" id="compatibility" aria-labelledby="compat-title"><div className="panel-title"><BookOpen size={21} /><h2 id="compat-title">Compatibility</h2></div>
-          <dl className="data-grid"><div><dt>Loaders inspected</dt><dd>Fabric, Forge, NeoForge, Quilt, legacy Java metadata</dd></div><div><dt>Rust generation</dt><dd>Recognized static bytecode and the Fabric startup pattern on compatible targets</dd></div><div><dt>Content export</dt><dd>Vanilla-item recipes on confirmed Minecraft 26.3 builds with content API 0.2</dd></div><div><dt>Nightly catalog</dt><dd>Recent releases and older archived source targets</dd></div></dl>
-        </section>
+        <Guide section={page === 'guide' ? section : undefined} />
       </div>
 
       <div className="browser-screen" hidden={page !== 'look'}>
         <PageIntro title="Look" description="Adjust the accent color and frosted glass across all HorizonRelay pages." />
         <Appearance />
       </div>
-    </main>
+    </main></div>
     <footer className="site-width footer"><strong>HorizonRelay · MIT</strong><a href={repo}>GitHub repository <GitFork size={15} /></a></footer>
   </>
 }

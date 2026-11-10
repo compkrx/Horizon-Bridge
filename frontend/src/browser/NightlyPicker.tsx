@@ -69,5 +69,12 @@ export function NightlyPicker({catalog, catalogError, catalogUrl, target, select
       {target && <a href={`https://github.com/horizon-rust/horizon/tree/${target.horizonRevision}`} target="_blank" rel="noreferrer">Pinned source ↗</a>}
     </div>}
     {target && <p className="nightly-info">{target.minecraft ? `Minecraft ${target.minecraft}` : 'Minecraft version unconfirmed'} · {target.nativeStartup ? 'Startup source available' : 'Startup hook unconfirmed'} · {target.contentApi === '0.2' && target.minecraft === '26.3' ? 'Recipe export available' : 'Recipe export unconfirmed'}</p>}
+    {catalog && <>
+      <div className="browser-metrics mt-3"><div><dt>Recent builds</dt><dd>{recent.length}</dd></div><div><dt>Archived builds</dt><dd>{archived.length}</dd></div><div><dt>Catalog entries</dt><dd>{targets.length}</dd></div></div>
+      <div className="nightly-builds" aria-label="Browse Nightly builds">{[...visibleRecent, ...visibleArchived].map((item) => <button className="nightly-build" type="button" key={item.id} aria-pressed={target?.id === item.id} disabled={busy} onClick={() => selectTarget(item.id)}>
+        <span><strong>{item.label}</strong><span className="text-muted">Minecraft {item.minecraft ?? 'unconfirmed'} · {item.date < cutoff ? 'Archived' : 'Recent'}{item.id === catalog.current ? ' · Current release' : ''}</span></span>
+        <span className="pill">{target?.id === item.id ? 'Selected' : 'Select'}</span>
+      </button>)}</div>
+    </>}
   </section>
 }
