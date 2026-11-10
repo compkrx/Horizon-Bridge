@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Archive, ArrowDownToLine, Braces, Check, FileCode2, FileText, Folder, LoaderCircle, Shield, Sparkles } from 'lucide-react'
 import { api, type Artifact, type Config, type Credentials, type FileInfo, type Job, type Metadata, type Target } from './api'
 import { bytes, displayError, displayValue } from './format'
+import { RewritePanel } from './RewritePanel'
+import type { RewriteChoice } from './rewrite'
 
 const artifactDetails = {
   hnmod: {title: 'Horizon native mod', description: 'Rust source the Horizon launcher compiles on your system.', Icon: Braces},
@@ -132,6 +134,22 @@ function Advice({credentials}: {credentials: Credentials}) {
   </section>
 }
 
+function ServerRewrite({credentials}: {credentials: Credentials}) {
+  const [sources, setSources] = useState<RewriteChoice[]>([])
+  const [model, setModel] = useState('')
+  const [notice, setNotice] = useState('Loading rewrite sources…')
+  useEffect(() => {
+    const controller = new AbortController()
+    api.rewriteSources(credentials, controller.signal).then((value) => {
+      setSources(value.sources)
+      setModel(value.model)
+      setNotice('')
+    }).catch((error: unknown) => {if (!controller.signal.aborted) setNotice(displayError(error))})
+    return () => controller.abort()
+  }, [credentials])
+  return <RewritePanel choices={sources} model={model} unavailable={notice} run={(id, _, signal) => api.rewrite(credentials, id, signal)} />
+}
+
 const resultLabels = {verified: 'Verified package', partial: 'Partial port', unsupported: 'Unsupported'}
 const resultDescriptions = {
   verified: 'The generated package passed its applicable technical checks. Review the behavioral validation before use.',
@@ -152,7 +170,7 @@ export function Results({job, credentials, config, access: localAccess}: {job: J
   return <div className="results" aria-labelledby="results-heading">
     <div className={`panel result-banner ${report.classification}`}>
       <span className="small-icon"><ResultIcon size={23} /></span>
-      <div className="min-w-0"><p className="eyebrow">Conversion results</p><h2 id="results-heading">{resultLabels[report.classification]}</h2><p>{resultDescriptions[report.classification]}</p></div>
+      <div className="min-w-0"><p className="eyebrow">Conversion results</p><h2 id="results-heading">{report.mode === 'inspect' ? 'Inspection complete' : resultLabels[report.classification]}</h2><p>{report.mode === 'inspect' ? 'The report describes the JAR without generating conversion code or content bundles.' : resultDescriptions[report.classification]}</p></div>
     </div>
     <section className="panel result-section" aria-labelledby="artifacts-heading">
       <div className="panel-title"><ArrowDownToLine size={21} /><h3 id="artifacts-heading">Downloads</h3></div>
@@ -193,6 +211,6 @@ export function Results({job, credentials, config, access: localAccess}: {job: J
       {report.warnings.length > 0 && <div className="subsection"><h4>Warnings</h4><ul>{report.warnings.map((warning, index) => <li key={index}>{warning}</li>)}</ul></div>}
     </section>
     {job.files.length > 0 && <SourceExplorer key={job.id} files={job.files} access={access} />}
-    {job.ai && config?.aiAvailable && credentials && <Advice key={job.id} credentials={credentials} />}
+    {job.ai && config?.aiAvailable && credentials && <><ServerRewrite key={job.id} credentials={credentials} /><Advice credentials={credentials} /></>}
   </div>
 }

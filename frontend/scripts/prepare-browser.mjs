@@ -13,7 +13,7 @@ for (const name of ['pyodide.mjs', 'pyodide.asm.mjs', 'pyodide.asm.wasm', 'pyodi
   copyFileSync(join(frontend, 'node_modules/pyodide', name), join(runtime, name))
 }
 copyFileSync(join(repo, 'notices/Pyodide-LICENSE.txt'), join(runtime, 'LICENSE.txt'))
-const files = Object.fromEntries(['archive', 'bytecode', 'inspect_jar', 'translate', 'horizon', 'browser'].map((name) =>
+const files = Object.fromEntries(['ai_input', 'archive', 'bytecode', 'inspect_jar', 'translate', 'horizon', 'browser'].map((name) =>
   [`${name}.py`, readFileSync(join(repo, 'engine/horizonrelay', `${name}.py`), 'utf8')]))
 writeFileSync(join(output, 'engine.json'), JSON.stringify(files))
 copyFileSync(join(repo, 'catalog/nightlies.json'), join(output, 'nightlies.json'))

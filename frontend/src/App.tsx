@@ -213,7 +213,7 @@ function Upload({config, configError, targetId, setTargetId, submit, sent, busy,
       <label className="checkbox-line"><input type="checkbox" checked={permission} onChange={(event) => setPermission(event.target.checked)} disabled={busy} />
         <span>I own this mod or have permission under its licence to translate it.</span></label>
       {config?.aiAvailable && !resume && <label className="checkbox-line"><input type="checkbox" checked={ai} onChange={(event) => setAi(event.target.checked)} disabled={busy} />
-        <span>Enable optional AI porting advice for this job. The configured provider receives a bounded report summary when advice is requested.</span></label>}
+        <span>Enable AI Rust drafts for this job. The configured model receives only the source you choose after conversion.</span></label>}
       {sent !== null && file && <div className="upload-meter"><label htmlFor="upload-meter">Uploading {bytes(sent)} of {bytes(file.size)}</label><progress id="upload-meter" value={sent} max={file.size} /></div>}
       {configError && <p className="error" role="alert">{configError}</p>}
       {error && <p className="error" role="alert">{error}</p>}
@@ -284,7 +284,7 @@ function Settings({config, error, reload}: {config: Config | null; error: string
       {config ? <dl className="target-spec">
         <div><dt>Maximum upload</dt><dd>{bytes(config.maxUploadBytes)}</dd></div>
         <div><dt>Temporary retention</dt><dd>{config.retentionHours} hours</dd></div>
-        <div><dt>AI porting advice</dt><dd>{config.aiAvailable ? 'Available per job' : 'Disabled by operator'}</dd></div>
+        <div><dt>AI Rust drafts</dt><dd>{config.aiAvailable ? (config.aiModel ?? 'Available per job') : 'Configure a local inference model to enable this'}</dd></div>
         {config.reconstructionAvailable !== undefined && <div><dt>Java reconstruction</dt><dd>{config.reconstructionAvailable ? 'Available' : 'Unavailable'}</dd></div>}
         {config.nativeValidationAvailable !== undefined && <div><dt>Native validation</dt><dd>{config.nativeValidationAvailable ? 'Available' : 'Unavailable'}</dd></div>}
       </dl> : !error && <p className="text-muted" role="status">Loading service settings…</p>}

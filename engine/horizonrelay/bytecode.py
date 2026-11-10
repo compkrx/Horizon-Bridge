@@ -307,15 +307,21 @@ def integer_method(cls: ClassFile, method: Method) -> dict:
             raise ValueError("Only primitive int, byte, short, char and boolean signatures are lowered.")
         if len(method.code) > MAX_METHOD_CODE or method.locals > 32 or method.stack > 32:
             raise ValueError("Method exceeds the translation size or complexity limits.")
-        return {
-            **result, "params": parameters, "returns": returns, "locals": method.locals,
-            "stack": method.stack, "instructions": _decode_integer(cls.pool, method.code),
-        }
+        signature = {**result, "params": parameters, "returns": returns, "locals": method.locals, "stack": method.stack}
+        try:
+            return {**signature, "instructions": _decode_integer(cls.pool, method.code)}
+        except ValueError as error:
+            # Keep complete evidence for draft generation while leaving deterministic lowering unchanged.
+            try:
+                instructions = _decode_integer(cls.pool, method.code, draft=True)
+            except ValueError:
+                raise error from None
+            return {**signature, "reason": str(error), "draftInstructions": instructions}
     except ValueError as error:
         return {**result, "reason": str(error)}
 
 
-def _decode_integer(pool: tuple[tuple | None, ...], code: bytes) -> list[list]:
+def _decode_integer(pool: tuple[tuple | None, ...], code: bytes, *, draft: bool = False) -> list[list]:
     reader = Reader(code)
     instructions = []
     while reader.pos < len(code):
@@ -338,6 +344,8 @@ def _decode_integer(pool: tuple[tuple | None, ...], code: bytes) -> list[list]:
             instruction = ["store", opcode - 0x3B]
         elif opcode in _INT_BINOP:
             instruction = [_INT_BINOP[opcode]]
+        elif draft and opcode in {0x6C, 0x70}:
+            instruction = ["idiv" if opcode == 0x6C else "irem"]
         elif opcode in _INT_UNOP:
             instruction = [_INT_UNOP[opcode]]
         elif opcode == 0x84:
@@ -352,8 +360,11 @@ def _decode_integer(pool: tuple[tuple | None, ...], code: bytes) -> list[list]:
         elif opcode == 0xB8:
             owner, name, descriptor = _member_ref(pool, reader.u2(), 10)
             if owner != "java/lang/Math" or (name, descriptor) not in _INT_MATH:
-                raise ValueError("Method invokes Java or game behavior outside the verified Math subset.")
-            instruction = [name]
+                if not draft:
+                    raise ValueError("Method invokes Java or game behavior outside the verified Math subset.")
+                instruction = ["invokestatic", owner, name, descriptor]
+            else:
+                instruction = [name]
         elif opcode in {0x57, 0x59}:
             instruction = ["pop" if opcode == 0x57 else "dup"]
         else:

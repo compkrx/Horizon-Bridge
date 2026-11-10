@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 
 from engine.horizonrelay.horizon import convert, target
+from engine.horizonrelay.ai_input import method_sources
 from engine.horizonrelay.inspect_jar import inspect_jar
 from engine.horizonrelay.translate import translate
 
@@ -153,6 +154,9 @@ def run(workspace):
     check_translated(translation.get('files', {}), source_dir, progress, validation, diagnostics)
     if translation.get('ir'):
         write_json(source_dir / 'bytecode-ir.json', translation['ir'])
+    rewrite_inputs = method_sources(inspection)
+    if rewrite_inputs:
+        write_json(source_dir / 'ai-methods.json', rewrite_inputs)
     result = convert(jar_path, inspection, translation, source_dir, artifacts, progress)
     validation += result.get('validation', [])
     if not any(item['name'] == 'Game behavior' for item in validation):

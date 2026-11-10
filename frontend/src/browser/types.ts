@@ -1,4 +1,7 @@
 import type { Artifact, Report, Target } from '../api'
+import type { RewriteSource } from '../rewrite'
+
+export type ConversionMode = 'all' | 'basic' | 'inspect'
 
 export interface NightlyTarget extends Target {
   date: string
@@ -24,8 +27,9 @@ export interface BrowserResult {
   artifacts: Artifact[]
   files: Record<string, string>
   downloads: Record<string, ArrayBuffer>
+  rewriteSources: RewriteSource[]
 }
 
 export type Stage = 'loading' | 'inspecting' | 'translating' | 'packaging'
-export type WorkerInput = {file: File; base: string; targetId: string}
+export type WorkerInput = {file: File; base: string; targetId: string; mode: ConversionMode}
 export type WorkerOutput = {stage: Stage} | {result: BrowserResult} | {error: string}

@@ -7,6 +7,10 @@ services:
     ports:
       - "127.0.0.1:8788:8788"
     environment:
+      HB_AI_PROVIDER: ${HB_AI_PROVIDER:-ollama}
+      HB_AI_URL: ${HB_AI_URL:-}
+      HB_AI_MODEL: ${HB_AI_MODEL:-}
+      HB_AI_TOKEN: ${HB_AI_TOKEN:-}
       HB_PROXY_SECRET: ${HB_PROXY_SECRET:-}
       HB_OLLAMA_URL: ${HB_OLLAMA_URL:-}
       HB_OLLAMA_MODEL: ${HB_OLLAMA_MODEL:-}

@@ -6,7 +6,7 @@
 .browser-hero { display: grid; grid-template-columns: 1.24fr 1fr; gap: clamp(20px, 5vw, 72px); align-items: center; padding: 72px 0 58px; }
 .browser-hero h1 { color: #eef7f0; font-size: clamp(2.8rem, 6vw, 5.5rem); line-height: .98; letter-spacing: -.075em; font-weight: 780; margin: 16px 0 22px; }
 .browser-hero h1 em { font-style: normal; color: #9ff5bc; }
-.browser-hero p:not(.eyebrow) { max-width: 52ch; color: #aebfb4; font-size: clamp(1rem, 2vw, 1.18rem); }
+.browser-hero > div:first-child > p:not(.eyebrow) { max-width: 52ch; color: #aebfb4; font-size: clamp(1rem, 2vw, 1.18rem); }
 .browser-hero .hero-slash { background: none; border-radius: 0; box-shadow: none; width: auto; height: auto; }
 .browser-hero-card { padding: 20px; min-width: 0; background: radial-gradient(ellipse at 69% 47%, #183c29 0%, #111b15 64%); }
 .hero-engine { display: flex; gap: 18px; align-items: center; justify-content: center; padding: 55px 8px; color: #a9f7c5; background-image: radial-gradient(#446750 1px, transparent 1px); background-size: 18px 18px; margin: 16px 0; }

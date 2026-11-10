@@ -6,6 +6,8 @@ HorizonRelay analyzes Minecraft Java mod JARs and attempts a native or content p
 
 ## Browser studio
 
+Choose a rules-only mode or generate a separate Rust draft on a WebGPU device. The self-hosted edition can use Ollama or a compatible inference server. See [AI setup, device requirements, and review notices](docs/AI.md).
+
 Open the GitHub Pages site, add up to 12 JARs, confirm conversion rights, and start a batch. The WebAssembly worker runs the same bounded JAR inspector and bytecode translator as the self-hosted edition. The studio offers original example JARs, a searchable resource inventory, a source explorer, and JSON reports. Input JARs and generated artifacts stay in the current tab.
 
 The browser produces standalone Rust, a pinned native source project for the supported Fabric startup pattern, and candidate `.hmod` bundles for supported shaped or shapeless recipes. Use the self-hosted edition to validate native `.hnmod` output with Horizon’s official tools. See the [GitHub Pages build and capabilities](docs/PAGES.md).

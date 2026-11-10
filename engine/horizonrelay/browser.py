@@ -8,6 +8,7 @@ import zipfile
 from pathlib import Path
 
 from .archive import open_jar
+from .ai_input import method_sources
 from .horizon import DEVICE_NAMES, ID_PATTERN, _native_source, _notices, target
 from .inspect_jar import inspect_jar
 from .translate import translate
@@ -78,14 +79,19 @@ def recipe_files(archive, resources, mod_id):
     return selected
 
 
-def convert_browser(path, destination, progress=lambda _: None, *, runtime="browser", target_info=None):
+def convert_browser(path, destination, progress=lambda _: None, *, runtime="browser", target_info=None, mode="all"):
     path, destination = Path(path), Path(destination)
+    if mode not in {"all", "basic", "inspect"}:
+        raise ValueError("Unknown conversion mode.")
     selected = target_info or {**target(), "contentApi": "0.2", "nativeStartup": True}
     progress("inspecting")
     inspection = inspect_jar(path)
     metadata = inspection["metadata"]
     progress("translating")
-    translation = translate(inspection)
+    if mode == "inspect":
+        translation = {"files": {}, "features": []}
+    else:
+        translation = translate(inspection if mode == "all" else {**inspection, "startupMessage": None})
     features = [*inspection["features"], *translation["features"]]
     checks = [{"name": "Bounded JAR inspection", "status": "passed",
                "detail": "ZIP entries and class structures were inspected by the portable engine."}]
@@ -123,7 +129,7 @@ def convert_browser(path, destination, progress=lambda _: None, *, runtime="brow
     mod_id = str(metadata.get("id") or "")
     recipes = {}
     content_supported = selected["minecraft"] == "26.3" and selected["contentApi"] == "0.2"
-    if content_supported and notices is not None and ID_PATTERN.fullmatch(mod_id) and mod_id not in DEVICE_NAMES:
+    if mode == "all" and content_supported and notices is not None and ID_PATTERN.fullmatch(mod_id) and mod_id not in DEVICE_NAMES:
         with open_jar(path, verify=False) as archive:
             recipes = recipe_files(archive, resources, mod_id)
     if recipes:
@@ -139,7 +145,9 @@ def convert_browser(path, destination, progress=lambda _: None, *, runtime="brow
                        "detail": "The candidate contains only the manifest and supported vanilla recipe JSON."})
     if resources:
         recipe_detail = f"Exported {len(recipes)} of {len(resources)} resource entries. Portable export supports vanilla-item shaped and shapeless recipes in the mod's namespace."
-        if not content_supported:
+        if mode != "all":
+            recipe_detail = "This conversion mode leaves assets and data unchanged."
+        elif not content_supported:
             recipe_detail = "Recipe export needs Minecraft 26.3 and content API 0.2 confirmed at the selected revision."
         features.append({"name": "Minecraft assets and data", "status": "partial" if recipes else "unsupported",
                          "detail": recipe_detail})
@@ -155,6 +163,7 @@ def convert_browser(path, destination, progress=lambda _: None, *, runtime="brow
         "inspection": {key: inspection[key] for key in ("classCount", "methodCount", "javaVersion", "resourceCount", "expandedSize")},
         "resources": {"count": len(resources), "entries": [{"path": name, "exported": name in recipes} for name in sorted(resources)[:1000]]},
         "runtime": runtime,
+        "mode": mode,
     }
     report_bytes = json_bytes(report)
     source["conversion-report.json"] = report_bytes
@@ -172,5 +181,5 @@ def convert_browser(path, destination, progress=lambda _: None, *, runtime="brow
     previews = {name: data.decode("utf-8", errors="replace") for name, data in source.items()
                 if name not in {"conversion-report.json", "bytecode-ir.json"} and len(data) <= 100_000
                 and name.endswith((".md", ".txt", ".rs", ".toml", ".json"))}
-    return {"report": report, "files": dict(list(sorted(previews.items()))[:70]),
+    return {"report": report, "files": dict(list(sorted(previews.items()))[:70]), "rewriteSources": method_sources(inspection),
             "artifacts": [{"name": name, "kind": kind, "size": len(content)} for name, (kind, content) in artifacts.items()]}

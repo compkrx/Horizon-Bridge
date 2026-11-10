@@ -22,7 +22,7 @@ async function prepare(base: string) {
 }
 
 self.onmessage = async (event: MessageEvent<WorkerInput>) => {
-  const { file, base, targetId } = event.data
+  const { file, base, targetId, mode } = event.data
   const input = '/tmp/horizonrelay-input.jar'
   const output = '/tmp/horizonrelay-output'
   let py: PyodideInterface | undefined
@@ -35,9 +35,10 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
     py.FS.writeFile(input, new Uint8Array(await file.arrayBuffer()))
     py.globals.set('hb_progress', (stage: Stage) => post({ stage }))
     py.globals.set('hb_target', JSON.stringify(target))
+    py.globals.set('hb_mode', mode)
     const value = py.runPython(`
 try:
-    hb_response = {"result": convert_browser("${input}", "${output}", hb_progress, target_info=json.loads(hb_target))}
+    hb_response = {"result": convert_browser("${input}", "${output}", hb_progress, target_info=json.loads(hb_target), mode=hb_mode)}
 except (ValueError, OSError) as exc:
     hb_response = {"error": str(exc)[:500]}
 json.dumps(hb_response)
@@ -59,6 +60,7 @@ json.dumps(hb_response)
       py.runPython(`shutil.rmtree("${output}", ignore_errors=True)\nglobals().pop("hb_response", None)`)
       py.globals.delete('hb_progress')
       py.globals.delete('hb_target')
+      py.globals.delete('hb_mode')
     }
   }
 }

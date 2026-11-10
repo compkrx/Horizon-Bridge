@@ -1,3 +1,5 @@
+import type { RewriteChoice, RustDraft } from './rewrite'
+
 export interface Target {
   id: string
   label: string
@@ -11,6 +13,7 @@ export interface Config {
   maxUploadBytes: number
   retentionHours: number
   aiAvailable: boolean
+  aiModel?: string | null
   reconstructionAvailable?: boolean
   nativeValidationAvailable?: boolean
   targets: Target[]
@@ -40,6 +43,7 @@ export interface Report {
   warnings: string[]
   missingDependencies: string[]
   inputBytes: number
+  mode?: 'all' | 'basic' | 'inspect'
 }
 
 export type Artifact = {name: string; kind: 'hnmod' | 'hmod' | 'source' | 'report'; size: number}
@@ -111,6 +115,10 @@ export const api = {
     getJson<Job>(`${jobPath(job)}/${action}`, {method: 'POST'}, job.token),
   advice: (job: Credentials) =>
     getJson<{advice: string}>(`${jobPath(job)}/advice`, {method: 'POST'}, job.token),
+  rewriteSources: (job: Credentials, signal: AbortSignal) =>
+    getJson<{model: string; sources: RewriteChoice[]}>(`${jobPath(job)}/rewrite`, {signal}, job.token),
+  rewrite: (job: Credentials, source: string, signal: AbortSignal) =>
+    getJson<RustDraft>(`${jobPath(job)}/rewrite?${new URLSearchParams({source})}`, {method: 'POST', signal}, job.token),
   async file(job: Credentials, path: string, signal: AbortSignal) {
     const response = await request(`${jobPath(job)}/files?${new URLSearchParams({path})}`, {signal}, job.token)
     return response.text()
