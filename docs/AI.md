@@ -5,9 +5,9 @@
 1. Open the studio, choose a Nightly, and add a JAR you can port or a built-in example.
 2. Select **Basic functions only** for the rule-based Rust generator, **All supported conversions** to include recipe and recognized startup ports, or **Inspect only** for an inventory.
 3. Start the conversion and open its result. Under **On-device AI rewrite**, choose a method and click **Generate Rust draft**.
-4. Review the draft and its notes, then download the `.rs` file. Compare it with the original method and the target Nightly's source before integrating it into a project.
+4. Review the draft, then download the `.rs` file. Compare it with the original method and the target Nightly's source before integrating it into a project.
 
-The browser uses WebLLM and a small Qwen2.5 model in a dedicated WebGPU worker. It downloads model weights from Hugging Face and a runtime from MLC on the first run, then uses the device’s GPU and memory. Method text and JAR contents stay on the device. The model cache belongs to the browser and can be removed through site data settings.
+The browser uses WebLLM and a small Qwen2.5-Coder model in a dedicated WebGPU worker. It downloads model weights from Hugging Face and a runtime from MLC on the first run, then uses the device’s GPU and memory. Method text and JAR contents stay on the device. The model cache belongs to the browser and can be removed through site data settings.
 
 You can leave the controls idle while generation runs. Keep the tab open and the device awake. On some phones the browser or operating system may pause work when switching apps, locking the screen, or reclaiming memory. Use **Keep the screen awake** where supported, and use **Cancel rewrite** to stop work or free model memory. If a device has no compatible WebGPU adapter, the rules-only modes still work. [WebLLM device and worker documentation](https://webllm.mlc.ai/docs/index.html)
 

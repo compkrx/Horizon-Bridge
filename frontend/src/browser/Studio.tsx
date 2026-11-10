@@ -94,7 +94,7 @@ function WorkspaceResults({item, result}: {item: Item; result: BrowserResult}) {
       </details>}
     </section>
     <Results job={job} config={null} access={access} />
-    <RewritePanel choices={result.rewriteSources} model="Qwen2.5 0.5B" device
+    <RewritePanel choices={result.rewriteSources} model="Qwen2.5-Coder 0.5B" device
       unavailable={'gpu' in navigator ? undefined : 'WebGPU is unavailable in this browser. Basic conversion still works.'}
       run={(id, progress, signal) => runDeviceRewrite(result.rewriteSources.find((source) => source.id === id)!, report.target.horizonRevision, progress, signal)} />
   </div>
