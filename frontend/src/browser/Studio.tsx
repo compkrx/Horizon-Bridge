@@ -385,7 +385,7 @@ export default function Studio() {
             <div className="browser-actions"><a className="btn accent" href={pageHref('studio', 'studio')}>Open Studio <ArrowRight size={16} /></a></div>
           </>}
         </section>
-        {completed.map((item) => <div hidden={item.id !== selected} key={item.id}><DeviceRewrite result={item.result!} /></div>)}
+        {completed.map((item) => <div id={item.id === selected ? 'on-device-ai' : undefined} hidden={item.id !== selected} key={item.id}><DeviceRewrite result={item.result!} /></div>)}
         <section className="panel result-section browser-compat" id="self-hosted" aria-labelledby="self-hosted-title">
           <div className="panel-title"><BookOpen size={21} /><h2 id="self-hosted-title">Self-hosted AI</h2></div>
           <p className="text-muted">Run the local edition with Ollama or another compatible inference server. It can draft Rust from reconstructed Java as well as JVM methods.</p>

@@ -45,7 +45,7 @@ export function RewritePanel({choices, model, run, device, unavailable, preview}
     setTimeout(() => URL.revokeObjectURL(href), 1000)
   }
 
-  return <section className="panel result-section rewrite-panel" id={device ? 'on-device-ai' : 'local-ai'}>
+  return <section className="panel result-section rewrite-panel" id={device ? `${selectId}-device-rewrite` : 'local-ai'}>
     <div className="panel-title"><Cpu size={21} /><h3>{device ? 'On-device AI rewrite' : 'Self-hosted AI rewrite'}</h3><span className="pill ml-auto">Rust draft</span></div>
     <p className="text-muted text-sm mb-4">{device
       ? 'This runs in a WebGPU worker. The first run downloads roughly 300 MB of model files. Your code stays on this device. Keep the tab open while it works.'
