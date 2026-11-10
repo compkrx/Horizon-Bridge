@@ -4,4 +4,4 @@ import { App } from './App'
 import './style.css'
 
 const Studio = import.meta.env.MODE === 'pages' ? lazy(() => import('./browser/Studio')) : App
-createRoot(document.getElementById('root')!).render(<StrictMode><Suspense fallback={<p className="site-width">Loading HorizonBridge…</p>}><Studio /></Suspense></StrictMode>)
+createRoot(document.getElementById('root')!).render(<StrictMode><Suspense fallback={<p className="site-width">Loading HorizonRelay…</p>}><Studio /></Suspense></StrictMode>)

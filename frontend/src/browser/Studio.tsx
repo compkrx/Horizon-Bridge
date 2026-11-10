@@ -1,13 +1,14 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Archive, ArrowDownToLine, ArrowRight, BookOpen, Box, Code2, GitFork, Layers3, LoaderCircle, LockKeyhole, Plus, Search, UploadCloud, X } from 'lucide-react'
 import type { Artifact, Job } from '../api'
 import { bytes, displayError } from '../format'
 import { Results, type ArtifactAccess } from '../Results'
-import type { BrowserResult, Stage, WorkerOutput } from './types'
+import type { BrowserResult, NightlyCatalog, Stage, WorkerOutput } from './types'
 import './studio.css'
 
-const repo = 'https://github.com/compkrx/Horizon-Bridge'
+const repo = 'https://github.com/horizonrelay/horizonrelay.github.io'
 const base = new URL(import.meta.env.BASE_URL, window.location.href).href
+const catalogUrl = new URL('browser/nightlies.json', base).href
 const maxFiles = 12
 const maxSize = 32 * 1024 * 1024
 const labels = { loading: 'Loading engine', inspecting: 'Inspecting JAR', translating: 'Translating bytecode', packaging: 'Building downloads' }
@@ -15,7 +16,7 @@ const examples = [{name: 'logic.jar', title: 'Java arithmetic'}, {name: 'asset.j
 
 type Item = {id: string; file: File; stage: Stage | 'ready' | 'queued' | 'failed' | 'cancelled'; result?: BrowserResult; error?: string}
 
-function run(worker: Worker, file: File, progress: (stage: Stage) => void, signal: AbortSignal): Promise<BrowserResult> {
+function run(worker: Worker, file: File, targetId: string, progress: (stage: Stage) => void, signal: AbortSignal): Promise<BrowserResult> {
   return new Promise((resolve, reject) => {
     const timeout = window.setTimeout(() => {
       worker.terminate()
@@ -37,7 +38,7 @@ function run(worker: Worker, file: File, progress: (stage: Stage) => void, signa
     worker.onerror = () => fail(new Error('The browser worker stopped unexpectedly.'))
     if (signal.aborted) { abort(); return }
     signal.addEventListener('abort', abort, { once: true })
-    worker.postMessage({ file, base })
+    worker.postMessage({ file, base, targetId })
   })
 }
 
@@ -100,9 +101,33 @@ export default function Studio() {
   const [sample, setSample] = useState('')
   const [error, setError] = useState('')
   const [dragging, setDragging] = useState(false)
+  const [catalog, setCatalog] = useState<NightlyCatalog>()
+  const [catalogError, setCatalogError] = useState('')
+  const [targetId, setTargetId] = useState('')
+  const [showArchived, setShowArchived] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const active = useRef<{ controller: AbortController; worker: Worker } | null>(null)
   const current = items.find((item) => item.id === selected)
+  const cutoff = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10)
+  const targets = catalog?.targets ?? []
+  const recent = targets.filter((item) => item.date >= cutoff)
+  const archived = targets.filter((item) => item.date < cutoff)
+  const target = targets.find((item) => item.id === targetId)
+  const showOld = showArchived || Boolean(target && target.date < cutoff)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void fetch(catalogUrl, { signal: controller.signal }).then(async (response) => {
+      if (!response.ok) throw new Error('Could not load the Nightly catalog. Reload the page to retry.')
+      const data = await response.json() as NightlyCatalog
+      if (data.schema !== 1 || !data.targets.some((item) => item.id === data.current)) throw new Error('The Nightly catalog is incomplete.')
+      setCatalog(data)
+      setTargetId(data.current)
+    }).catch((error) => {
+      if (!controller.signal.aborted) setCatalogError(displayError(error))
+    })
+    return () => controller.abort()
+  }, [])
 
   function add(files: File[]) {
     if (busy) return
@@ -125,7 +150,7 @@ export default function Studio() {
   }
 
   async function convert() {
-    if (active.current || !authorized) return
+    if (active.current || !authorized || !target) return
     setError('')
     const queue = items.filter((item) => item.stage === 'queued')
     if (!queue.length) return
@@ -140,7 +165,7 @@ export default function Studio() {
       for (const item of queue) {
         if (controller.signal.aborted) break
         try {
-          const result = await run(worker, item.file, (stage) => update(item.id, {stage}), controller.signal)
+          const result = await run(worker, item.file, target.id, (stage) => update(item.id, {stage}), controller.signal)
           update(item.id, {stage: 'ready', result})
           setSelected((value) => value || item.id)
         } catch (error) {
@@ -160,7 +185,7 @@ export default function Studio() {
   return <>
     <a href="#studio" className="skip-link">Skip to converter</a>
     <header className="topbar browser-header"><div className="site-width topbar-inner">
-      <a href="#" className="brand"><img src={new URL('bridge.svg', base).href} width="32" height="32" alt="" /><strong>Horizon<span>Bridge</span></strong></a>
+      <a href="#" className="brand"><img src={new URL('bridge.svg', base).href} width="32" height="32" alt="" /><strong>Horizon<span>Relay</span></strong></a>
       <nav className="browser-nav" aria-label="Primary"><a href="#studio">Studio</a><a href="#compatibility">Compatibility</a><a href={repo}><GitFork size={16} /> GitHub</a></nav>
       <span className="service-pill"><span className="service-dot online" /> Local mode</span>
     </div></header>
@@ -196,9 +221,26 @@ export default function Studio() {
           </li>)}</ul>}
           <p className="sr-only" role="status">{ready > 0 ? `${ready} of ${items.length} results ready.` : ''}</p>
           {error && <p className="error" role="alert">{error}</p>}
+          <section className="nightly-picker" aria-label="Conversion target">
+            <div className="nightly-heading"><label htmlFor="nightly-target">Horizon Nightly target</label><a href={catalogUrl} download="horizon-nightlies.json">Download catalog</a></div>
+            <select id="nightly-target" value={targetId} onChange={(event) => setTargetId(event.target.value)} disabled={busy || !catalog}>
+              {!catalog && <option value="">{catalogError ? 'Catalog unavailable' : 'Loading Nightlies…'}</option>}
+              {recent.length > 0 && <optgroup label="Last 30 days">{recent.map((item) => <option key={item.id} value={item.id}>{item.label}{item.id === catalog?.current ? ' · Current' : ''}</option>)}</optgroup>}
+              {showOld && archived.length > 0 && <optgroup label="Archived Nightlies">{archived.map((item) => <option key={item.id} value={item.id}>{item.label}{item.id === catalog?.current ? ' · Current' : ''}</option>)}</optgroup>}
+            </select>
+            {catalogError && <p className="error" role="alert">{catalogError}</p>}
+            {catalog && <div className="nightly-meta">
+              <label className="permission"><input type="checkbox" checked={showOld} disabled={busy || !archived.length || !recent.length} onChange={(event) => {
+                setShowArchived(event.target.checked)
+                if (!event.target.checked && target && target.date < cutoff) setTargetId(recent[0]?.id ?? catalog.current)
+              }} /> Show archived Nightlies ({archived.length})</label>
+              {target && <a href={`https://github.com/horizon-rust/horizon/tree/${target.horizonRevision}`} target="_blank" rel="noreferrer">Pinned source ↗</a>}
+            </div>}
+            {target && <p className="nightly-info">{target.minecraft ? `Minecraft ${target.minecraft}` : 'Minecraft version unconfirmed'} · {target.nativeStartup ? 'Startup source available' : 'Startup hook unconfirmed'} · {target.contentApi === '0.2' && target.minecraft === '26.3' ? 'Recipe export available' : 'Recipe export unconfirmed'}</p>}
+          </section>
           <label className="permission browser-permission"><input type="checkbox" checked={authorized} disabled={busy} onChange={(event) => setAuthorized(event.target.checked)} /> I own these mods or have permission to convert them.</label>
           <div className="browser-actions">
-            <button className="btn accent" type="button" disabled={!count || !authorized || busy || !!sample} onClick={() => void convert()}>{busy ? <LoaderCircle size={16} className="spin" /> : <ArrowRight size={16} />} {busy ? 'Processing batch' : `Convert ${count || ''} ${count === 1 ? 'JAR' : 'JARs'}`}</button>
+            <button className="btn accent" type="button" disabled={!count || !authorized || busy || !!sample || !target} onClick={() => void convert()}>{busy ? <LoaderCircle size={16} className="spin" /> : <ArrowRight size={16} />} {busy ? 'Processing batch' : `Convert ${count || ''} ${count === 1 ? 'JAR' : 'JARs'}`}</button>
             {busy ? <button className="btn outline" type="button" onClick={() => {active.current?.controller.abort(); active.current?.worker.terminate()}}>Cancel batch</button>
               : items.length > 0 && <button className="btn plain" type="button" onClick={() => {setItems([]); setSelected(''); setError(''); setAuthorized(false)}}>Clear session</button>}
           </div>
@@ -209,9 +251,10 @@ export default function Studio() {
       </div>
       {current?.result && <WorkspaceResults key={current.id} item={current} result={current.result} />}
       <section className="panel result-section browser-compat" id="compatibility" aria-labelledby="compat-title"><div className="panel-title"><BookOpen size={21} /><h2 id="compat-title">Compatibility</h2></div>
-        <dl className="data-grid"><div><dt>Loaders inspected</dt><dd>Fabric, Forge, NeoForge, Quilt, legacy Java metadata</dd></div><div><dt>Rust generation</dt><dd>Recognized static bytecode and the supported Fabric startup pattern</dd></div><div><dt>Content export</dt><dd>Vanilla-item shaped and shapeless recipes in the mod’s namespace</dd></div><div><dt>Horizon target</dt><dd>Minecraft 26.3 · fdc87ae · hook API 411</dd></div></dl>
+        <dl className="data-grid"><div><dt>Loaders inspected</dt><dd>Fabric, Forge, NeoForge, Quilt, legacy Java metadata</dd></div><div><dt>Rust generation</dt><dd>Recognized static bytecode and the Fabric startup pattern on compatible targets</dd></div><div><dt>Content export</dt><dd>Vanilla-item recipes on confirmed Minecraft 26.3 builds with content API 0.2</dd></div><div><dt>Nightly catalog</dt><dd>Recent releases and older archived source targets</dd></div></dl>
       </section>
     </main>
-    <footer className="site-width footer"><strong>HorizonBridge · MIT</strong><a href={repo}>GitHub repository <GitFork size={15} /></a></footer>
+    <footer className="site-width footer"><strong>HorizonRelay · MIT</strong><a href={repo}>GitHub repository <GitFork size={15} /></a></footer>
   </>
 }
+

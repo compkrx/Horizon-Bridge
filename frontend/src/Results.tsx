@@ -26,9 +26,9 @@ export function MetadataTable({metadata}: {metadata: Metadata}) {
 
 export function TargetDetails({target}: {target: Target}) {
   return <dl className="target-spec">
-    <div><dt>Minecraft</dt><dd>{target.minecraft}</dd></div>
+    <div><dt>Minecraft</dt><dd>{target.minecraft ?? 'Unknown'}</dd></div>
     <div><dt>Horizon</dt><dd title={target.horizonRevision}>{target.horizonRevision?.slice(0, 12) || 'Unknown'}</dd></div>
-    <div><dt>Mixins</dt><dd title={target.mixinsRevision}>{target.mixinsRevision?.slice(0, 12) || 'Unknown'}</dd></div>
+    <div><dt>Mixins</dt><dd title={target.mixinsRevision ?? undefined}>{target.mixinsRevision?.slice(0, 12) || 'Unknown'}</dd></div>
     <div><dt>Hook API</dt><dd>{target.hookApi ?? 'Unknown'}</dd></div>
   </dl>
 }
@@ -136,7 +136,7 @@ const resultLabels = {verified: 'Verified package', partial: 'Partial port', uns
 const resultDescriptions = {
   verified: 'The generated package passed its applicable technical checks. Review the behavioral validation before use.',
   partial: 'Some functionality was translated. Use the report to see what still requires development or testing.',
-  unsupported: 'HorizonBridge could not produce a meaningful port with the current conversion rules. The report identifies the blockers.',
+  unsupported: 'HorizonRelay could not produce a meaningful port with the current conversion rules. The report identifies the blockers.',
 }
 
 export function Results({job, credentials, config, access: localAccess}: {job: Job; credentials?: Credentials; config: Config | null; access?: ArtifactAccess}) {

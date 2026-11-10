@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.requests import ClientDisconnect
 
-from engine.horizonbridge.horizon import target
+from engine.horizonrelay.horizon import target
 
 from .store import MAX_UPLOAD, RETENTION, UPLOAD_TIMEOUT, JobError, Store, digest, now
 

@@ -25,7 +25,7 @@ function Shell({path, config, configError, children}: {path: string; config: Con
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="topbar">
       <div className="site-width nav-wrap">
-        <a href="/" className="brand" aria-label="HorizonBridge home"><img src="/bridge.svg" alt="" width="33" height="33" />Horizon<span>Bridge</span></a>
+        <a href="/" className="brand" aria-label="HorizonRelay home"><img src="/bridge.svg" alt="" width="33" height="33" />Horizon<span>Relay</span></a>
         <nav aria-label="Main navigation" className="nav-links">
           {pages.map(({path: href, label, Icon}) => <a key={href} href={href} aria-current={href === path ? 'page' : undefined}>
             <Icon size={15} aria-hidden="true" /><span>{label}</span>
@@ -36,7 +36,7 @@ function Shell({path, config, configError, children}: {path: string; config: Con
     </header>
     <main className="site-width" id="main" tabIndex={-1}>{children}</main>
     <footer className="site-width footer">
-      <div className="flex items-center gap-2"><img src="/bridge.svg" alt="" width="24" height="24" /><strong>HorizonBridge</strong><span className="footer-separator">/</span><span>Java to Horizon</span></div>
+      <div className="flex items-center gap-2"><img src="/bridge.svg" alt="" width="24" height="24" /><strong>HorizonRelay</strong><span className="footer-separator">/</span><span>Java to Horizon</span></div>
       <div className="flex flex-wrap gap-5"><a href="/compatibility">Compatibility</a><a href="/help">Help & privacy</a><a href="https://playhorizon.dev/docs/mods" target="_blank" rel="noreferrer">Horizon docs <ArrowUpRight size={13} /></a></div>
     </footer>
   </>
@@ -261,7 +261,7 @@ function Compatibility({config}: {config: Config | null}) {
         {config?.targets.length ? config.targets.map((target) => <div key={target.id} className="mt-4"><h3>{target.label}</h3><TargetDetails target={target} /></div>) : <p className="text-muted">Target details load from the conversion API.</p>}
       </section>
       <section className="panel result-section"><div className="panel-title"><FileArchive size={21} /><h2>Source loaders</h2></div>
-        <p className="text-muted">HorizonBridge reads Fabric, Forge, NeoForge, Quilt, and recognized legacy metadata. Loader detection identifies the source. The results report tracks conversion coverage separately.</p>
+        <p className="text-muted">HorizonRelay reads Fabric, Forge, NeoForge, Quilt, and recognized legacy metadata. Loader detection identifies the source. The results report tracks conversion coverage separately.</p>
         <div className="format-list">{['Fabric', 'Forge', 'NeoForge', 'Quilt', 'Legacy'].map((loader) => <span className="pill" key={loader}>{loader}</span>)}</div>
       </section>
       <section className="panel result-section"><div className="panel-title"><Braces size={21} /><h2>Rust and assets</h2></div>
@@ -277,7 +277,7 @@ function Compatibility({config}: {config: Config | null}) {
 
 function Settings({config, error, reload}: {config: Config | null; error: string; reload: () => void}) {
   return <>
-    <PageHeading eyebrow="Service / 02" title="Settings">View the capabilities configured by the operator of this HorizonBridge instance.</PageHeading>
+    <PageHeading eyebrow="Service / 02" title="Settings">View the capabilities configured by the operator of this HorizonRelay instance.</PageHeading>
     <section className="panel result-section settings-panel">
       <div className="panel-title"><Settings2 size={21} /><h2>Processor configuration</h2></div>
       {error && <p className="error" role="alert">{error}</p>}

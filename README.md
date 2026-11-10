@@ -1,8 +1,8 @@
-# HorizonBridge
+# HorizonRelay
 
-**[Open the browser studio](https://compkrx.github.io/Horizon-Bridge/)** · [MIT license](LICENSE) · [Report a bug](https://github.com/compkrx/Horizon-Bridge/issues)
+**[Open the browser studio](https://horizonrelay.github.io/)** · [MIT license](LICENSE) · [Report a bug](https://github.com/compkrx/Horizon-Bridge/issues)
 
-HorizonBridge analyzes Minecraft Java mod JARs and attempts a native or content port for Horizon Nightly `fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca`. The target is Minecraft 26.3 with hook API 411.
+HorizonRelay analyzes Minecraft Java mod JARs and attempts a native or content port for a selected Horizon Nightly. The browser studio tracks the rolling 30-day window and keeps older source targets in its archive.
 
 ## Browser studio
 
@@ -12,7 +12,7 @@ The browser produces standalone Rust, a pinned native source project for the sup
 
 ## Self-hosted edition
 
-The web app queues bounded, static inspection and conversion jobs. A separate processor reconstructs Java when Vineflower is configured, lowers a small JVM instruction subset to Rust, and applies verified Horizon-specific mappings. Each result includes `PORTING.md`, a JSON report, and a reviewable source archive. A native or content bundle appears only when its applicable official tools succeed.
+The web app queues bounded, static inspection and conversion jobs. A separate processor reconstructs Java when Vineflower is configured, lowers a small JVM instruction subset to Rust, and applies verified Horizon-specific mappings. Each result includes `PORTING.md`, a JSON report, and a reviewable source archive. A native or content bundle appears only when its applicable official tools succeed. The self-hosted build image targets Horizon Nightly `fdc87ae` (Minecraft 26.3, hook API 411).
 
 ## Run locally
 
@@ -35,7 +35,7 @@ To generate original fixtures with a JDK on `PATH`, run `python tests/make_fixtu
 Build and run the Docker profile on a Linux host with Landlock ABI 3 or newer. Build-time network access fetches pinned tools and Cargo sources. Job processing has no network access.
 
 ```sh
-docker build -f infra/Dockerfile.toolchain -t horizonbridge-toolchain:26.3 .
+docker build -f infra/Dockerfile.toolchain -t horizonrelay-toolchain:26.3 .
 docker compose up --build -d
 npm --prefix frontend ci
 npm --prefix frontend run dev
@@ -67,3 +67,4 @@ npm --prefix frontend run build
 Run the Rust arithmetic fixture with `rustc` on `PATH` or set `HB_RUSTC` to an absolute compiler path. Official-tool tests require the pinned toolchain. Enable them with `HORIZONBRIDGE_ENABLE_ASSETS=1` and `HORIZONBRIDGE_ENABLE_NATIVE=1` after configuring the appropriate tools. The [browser tests](frontend/README.md) use the live API and worker.
 
 Local verification covered desktop and mobile browser flows, malformed archives, loader metadata, Rust arithmetic and control flow, and the pinned official packaging tools. The original startup fixture went through the API and passed native mixin application, the patched Horizon client compilation check, official native packaging, and `cargo horizon-mod check`. A recipe fixture passed the official content build and package check and was downloaded through the browser. The Windows verification used host-local toolchains. Cloudflare deployment, Linux Docker runtime, and in-game behavior require separate checks.
+

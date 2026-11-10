@@ -103,7 +103,7 @@ def _notices(path: Path, source_dir: Path, metadata: dict) -> bytes:
     lines = ["Source mod attribution", "", f"Name: {metadata.get('name', '')}",
              f"ID: {metadata.get('id', '')}", f"Version: {metadata.get('version', '')}",
              f"Author: {metadata.get('author', '')}", f"License: {metadata.get('license', '')}",
-             "", "Port created with HorizonBridge. The original license and any permissions apply.", ""]
+             "", "Port created with HorizonRelay. The original license and any permissions apply.", ""]
     parts = ["\n".join(lines).encode("utf-8", errors="replace")]
     with open_jar(path, verify=False) as archive:
         names = [name for name in archive.names if NOTICE_PATTERN.fullmatch(name)]
@@ -120,7 +120,9 @@ def _notices(path: Path, source_dir: Path, metadata: dict) -> bytes:
     return notice
 
 
-def _native_source(project: Path, metadata: dict, message: str, notices: bytes) -> tuple[str, str]:
+def _native_source(project: Path, metadata: dict, message: str, notices: bytes, *, target_info=None) -> tuple[str, str]:
+    selected = target_info or target()
+    revision = selected["horizonRevision"]
     original_id = str(metadata.get("id") or "")
     mod_id = original_id
     if not ID_PATTERN.fullmatch(mod_id) or mod_id in DEVICE_NAMES:
@@ -132,9 +134,9 @@ def _native_source(project: Path, metadata: dict, message: str, notices: bytes) 
     bundle.mkdir(parents=True, exist_ok=True)
     (project / "LICENSE").write_bytes(notices)
     compatibility = {
-        "game": MINECRAFT, "hooks": HOOK_API, "horizon_revision": HORIZON,
+        "game": selected["minecraft"], "hooks": selected["hookApi"], "horizon_revision": revision,
         "horizon_repository": "https://github.com/horizon-rust/horizon",
-        "horizon_mixins_revision": MIXINS,
+        "horizon_mixins_revision": selected["mixinsRevision"],
         "horizon_mixins_repository": "https://github.com/horizon-rust/horizon-mixins",
         "mixin_schema": 6,
     }
@@ -145,7 +147,7 @@ version = "{version}"
 priority = 100
 
 [compatibility]
-horizon_revision = "{HORIZON}"
+horizon_revision = "{revision}"
 
 [[injection]]
 id = "client-start"

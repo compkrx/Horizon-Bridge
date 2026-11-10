@@ -78,8 +78,9 @@ def recipe_files(archive, resources, mod_id):
     return selected
 
 
-def convert_browser(path, destination, progress=lambda _: None, *, runtime="browser"):
+def convert_browser(path, destination, progress=lambda _: None, *, runtime="browser", target_info=None):
     path, destination = Path(path), Path(destination)
+    selected = target_info or {**target(), "contentApi": "0.2", "nativeStartup": True}
     progress("inspecting")
     inspection = inspect_jar(path)
     metadata = inspection["metadata"]
@@ -91,7 +92,7 @@ def convert_browser(path, destination, progress=lambda _: None, *, runtime="brow
     warnings = list(inspection["warnings"])
     source = {name: text.encode() for name, text in translation["files"].items()}
     if source:
-        source["Cargo.toml"] = (b'[package]\nname = "horizonbridge_port"\nversion = "0.1.0"\n'
+        source["Cargo.toml"] = (b'[package]\nname = "horizonrelay_port"\nversion = "0.1.0"\n'
                                 b'edition = "2021"\n\n[lib]\npath = "src/translated.rs"\n')
     if translation.get("ir"):
         source["bytecode-ir.json"] = json_bytes(translation["ir"])
@@ -103,10 +104,15 @@ def convert_browser(path, destination, progress=lambda _: None, *, runtime="brow
         except ValueError as exc:
             warnings.append(str(exc))
         native = translation.get("native")
-        if native and notices is not None:
-            _native_source(scratch / "native", metadata, native["startupMessage"], notices)
+        emit_native = native and notices is not None and selected["nativeStartup"]
+        if emit_native:
+            _native_source(scratch / "native", metadata, native["startupMessage"], notices, target_info=selected)
             features.append({"name": "Native startup project", "status": "partial",
-                             "detail": "Pinned Horizon mixin source is available. Build and validate it with the self-hosted toolchain."})
+                             "detail": "The selected revision has the recognized hooks. The source is pinned to that build; validate it with matching Horizon tools."})
+        elif native:
+            features = [item for item in features if item["name"] != "Fabric client startup message"]
+            features.append({"name": "Native startup project", "status": "unsupported",
+                             "detail": "This target does not expose the required verified startup and mod-list signatures, or the original notices could not be retained."})
         for file in scratch.rglob("*"):
             if file.is_file():
                 source[file.relative_to(scratch).as_posix()] = file.read_bytes()
@@ -116,7 +122,8 @@ def convert_browser(path, destination, progress=lambda _: None, *, runtime="brow
     resources = inspection["resources"]
     mod_id = str(metadata.get("id") or "")
     recipes = {}
-    if notices is not None and ID_PATTERN.fullmatch(mod_id) and mod_id not in DEVICE_NAMES:
+    content_supported = selected["minecraft"] == "26.3" and selected["contentApi"] == "0.2"
+    if content_supported and notices is not None and ID_PATTERN.fullmatch(mod_id) and mod_id not in DEVICE_NAMES:
         with open_jar(path, verify=False) as archive:
             recipes = recipe_files(archive, resources, mod_id)
     if recipes:
@@ -131,15 +138,18 @@ def convert_browser(path, destination, progress=lambda _: None, *, runtime="brow
         checks.append({"name": "Recipe export rules", "status": "passed",
                        "detail": "The candidate contains only the manifest and supported vanilla recipe JSON."})
     if resources:
+        recipe_detail = f"Exported {len(recipes)} of {len(resources)} resource entries. Portable export supports vanilla-item shaped and shapeless recipes in the mod's namespace."
+        if not content_supported:
+            recipe_detail = "Recipe export needs Minecraft 26.3 and content API 0.2 confirmed at the selected revision."
         features.append({"name": "Minecraft assets and data", "status": "partial" if recipes else "unsupported",
-                         "detail": f"Exported {len(recipes)} of {len(resources)} resource entries. Portable export supports vanilla-item shaped and shapeless recipes in the mod's namespace."})
+                         "detail": recipe_detail})
     checks.extend([
-        {"name": "Official Horizon tools and Rust compilation", "status": "skipped", "detail": "Use the self-hosted edition to run the pinned tools."},
+        {"name": "Official Horizon tools and Rust compilation", "status": "skipped", "detail": "Use Horizon tools matching the selected revision to validate candidate artifacts."},
         {"name": "Game behavior", "status": "skipped", "detail": "Test recipes and mods in a disposable Horizon instance."},
     ])
     report = {
-        "classification": "partial" if recipes or translation["files"] or (native and notices is not None) else "unsupported",
-        "metadata": metadata, "target": target(), "features": features, "validation": checks,
+        "classification": "partial" if recipes or translation["files"] or emit_native else "unsupported",
+        "metadata": metadata, "target": selected, "features": features, "validation": checks,
         "diagnostics": [], "warnings": warnings, "missingDependencies": inspection["missingDependencies"],
         "inputBytes": path.stat().st_size,
         "inspection": {key: inspection[key] for key in ("classCount", "methodCount", "javaVersion", "resourceCount", "expandedSize")},
@@ -149,13 +159,13 @@ def convert_browser(path, destination, progress=lambda _: None, *, runtime="brow
     report_bytes = json_bytes(report)
     source["conversion-report.json"] = report_bytes
     source["PORTING.md"] = (
-        f"# HorizonBridge porting notes\n\nTarget: Minecraft {target()['minecraft']}, Horizon `{target()['horizonRevision']}`.\n\n"
+        f"# HorizonRelay porting notes\n\nTarget: Minecraft {selected['minecraft'] or 'unconfirmed'}, Horizon `{selected['horizonRevision']}`.\n\n"
         "The portable engine generates candidate artifacts. Review `conversion-report.json` and the original attribution.\n"
-        "Run `cargo check --offline` for the standalone Rust library when present. Use the self-hosted edition for native validation.\n"
+        "Run `cargo check --offline` for the standalone Rust library when present. For native validation, use Horizon tools matching the selected revision.\n"
         "For recipe bundles, run `cargo horizon-mod check <file.hmod> --json` and test in a disposable world.\n"
     ).encode()
     artifacts["conversion-report.json"] = ("report", report_bytes)
-    artifacts["horizonbridge-source.zip"] = ("source", zip_bytes(source))
+    artifacts["horizonrelay-source.zip"] = ("source", zip_bytes(source))
     destination.mkdir()
     for name, (_, content) in artifacts.items():
         (destination / name).write_bytes(content)

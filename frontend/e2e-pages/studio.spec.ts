@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
+import type { NightlyCatalog } from '../src/browser/types'
 
 test('static Pages processes a multi-JAR batch without network uploads', async ({page}) => {
   const outbound: string[] = []
@@ -7,6 +8,15 @@ test('static Pages processes a multi-JAR batch without network uploads', async (
     if (request.method() !== 'GET' || new URL(request.url()).origin !== 'http://127.0.0.1:5175') outbound.push(request.url())
   })
   await page.goto('./')
+  const picker = page.getByRole('combobox', {name: 'Horizon Nightly target'})
+  await expect(picker).toBeEnabled()
+  const catalog = await (await page.request.get('./browser/nightlies.json')).json() as NightlyCatalog
+  await expect(picker).toHaveValue(catalog.current)
+  const known = catalog.targets.find((item) => item.horizonRevision.startsWith('fdc87ae'))!
+  if (await picker.locator(`option[value="${known.id}"]`).count() === 0) {
+    await page.getByRole('checkbox', {name: /Show archived Nightlies/}).check()
+  }
+  await picker.selectOption(known.id)
   await page.getByRole('button', {name: 'Java arithmetic', exact: true}).click()
   await expect(page.getByText('logic.jar', {exact: true})).toBeVisible()
   await page.getByRole('button', {name: 'Crafting recipe', exact: true}).click()
@@ -31,6 +41,28 @@ test('static Pages processes a multi-JAR batch without network uploads', async (
   await expect(page.getByText('Native startup project', {exact: true})).toBeVisible()
   await expect(page.getByRole('button', {name: 'Download Horizon native mod'})).toHaveCount(0)
   expect(outbound).toEqual([])
+})
+
+test('older targets move to the archive and conversion uses the chosen revision', async ({page}) => {
+  const catalog = await (await page.request.get('./browser/nightlies.json')).json() as NightlyCatalog
+  const old = catalog.targets.at(-1)!
+  await page.clock.setFixedTime(new Date(Date.parse(old.date) + 30 * 86_400_000 + 3_600_000))
+  await page.goto('./')
+  const picker = page.getByRole('combobox', {name: 'Horizon Nightly target'})
+  await expect(picker).toBeEnabled()
+  await expect(picker.locator(`option[value="${old.id}"]`)).toHaveCount(0)
+  await page.getByRole('checkbox', {name: /Show archived Nightlies/}).check()
+  await picker.selectOption(old.id)
+  await page.getByRole('button', {name: 'Java arithmetic', exact: true}).click()
+  await expect(page.getByText('logic.jar', {exact: true})).toBeVisible()
+  await page.getByRole('checkbox', {name: /I own/}).check()
+  await page.getByRole('button', {name: 'Convert 1 JAR'}).click()
+  const [download] = await Promise.all([
+    page.waitForEvent('download'), page.getByRole('button', {name: 'Download Conversion report'}).click(),
+  ])
+  const report = JSON.parse(await readFile((await download.path())!, 'utf8'))
+  expect(report.target.horizonRevision).toBe(old.horizonRevision)
+  expect(report.target.date).toBe(old.date)
 })
 
 test('malformed input is rejected on a mobile viewport', async ({page}) => {

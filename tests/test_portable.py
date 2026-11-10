@@ -1,7 +1,7 @@
 import json
 import zipfile
 
-from engine.horizonbridge.browser import convert_browser, vanilla_recipe
+from engine.horizonrelay.browser import convert_browser, vanilla_recipe
 from make_fixtures import fabric_descriptor, fixture_jar
 
 
@@ -20,7 +20,7 @@ def test_portable_recipe_export_keeps_namespace_and_reports_skipped_assets(tmp_p
     with zipfile.ZipFile(output / "bridge_fixture.hmod") as bundle:
         assert bundle.namelist() == [own, "horizon-mod.toml"]
         assert json.loads(bundle.read(own)) == recipe
-    with zipfile.ZipFile(output / "horizonbridge-source.zip") as source:
+    with zipfile.ZipFile(output / "horizonrelay-source.zip") as source:
         assert source.read("notices/LICENSE.txt") == b"Original fixture notice"
 
 

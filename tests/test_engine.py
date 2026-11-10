@@ -10,9 +10,9 @@ import zipfile
 import zlib
 from pathlib import Path
 
-from engine.horizonbridge.archive import open_jar
-from engine.horizonbridge.inspect_jar import inspect_jar
-from engine.horizonbridge.translate import _lower_method, translate
+from engine.horizonrelay.archive import open_jar
+from engine.horizonrelay.inspect_jar import inspect_jar
+from engine.horizonrelay.translate import _lower_method, translate
 
 from make_fixtures import build, fabric_descriptor, fixture_jar
 
@@ -145,7 +145,7 @@ class EngineTests(unittest.TestCase):
 
     def test_exact_client_hook_and_blocked_variants(self):
         result = translate(self.inspect("startup"))
-        self.assertEqual(result["native"]["startupMessage"], "Hello from HorizonBridge's fixture. 🚀")
+        self.assertEqual(result["native"]["startupMessage"], "Hello from HorizonRelay's fixture. 🚀")
         with open_jar(self.fixtures / "startup.jar") as source:
             original = source.read("fixture/Startup.class")
         for edits in (

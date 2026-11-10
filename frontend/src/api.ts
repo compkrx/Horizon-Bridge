@@ -1,10 +1,10 @@
 export interface Target {
   id: string
   label: string
-  minecraft: string
+  minecraft: string | null
   horizonRevision: string
-  mixinsRevision: string
-  hookApi: number | string
+  mixinsRevision: string | null
+  hookApi: number | string | null
 }
 
 export interface Config {

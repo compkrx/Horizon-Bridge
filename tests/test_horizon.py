@@ -8,9 +8,9 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from engine.horizonbridge.horizon import HOOK_API, HORIZON, MIXINS, convert
-from engine.horizonbridge.inspect_jar import inspect_jar
-from engine.horizonbridge.translate import translate
+from engine.horizonrelay.horizon import HOOK_API, HORIZON, MIXINS, convert
+from engine.horizonrelay.inspect_jar import inspect_jar
+from engine.horizonrelay.translate import translate
 from make_fixtures import build, fabric_descriptor, fixture_jar
 
 
@@ -59,7 +59,7 @@ class HorizonPackagingTests(unittest.TestCase):
                 "horizon-native.json", "mixins/bridge_fixture/horizon-mixin.toml",
                 "mixins/bridge_fixture/client_start.rs", "mixins/bridge_fixture/list.rs", "mixins/bridge_fixture/LICENSE",
             })
-            self.assertIn(b"Hello from HorizonBridge's fixture. \\u{1f680}", archive.read("mixins/bridge_fixture/client_start.rs"))
+            self.assertIn(b"Hello from HorizonRelay's fixture. \\u{1f680}", archive.read("mixins/bridge_fixture/client_start.rs"))
 
 
 if __name__ == "__main__":

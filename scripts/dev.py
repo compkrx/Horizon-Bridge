@@ -24,7 +24,7 @@ def main():
     try:
         for command, cwd in commands:
             processes.append(subprocess.Popen(command, cwd=cwd, env=env))
-        print('HorizonBridge local UI: http://127.0.0.1:5173', flush=True)
+        print('HorizonRelay local UI: http://127.0.0.1:5173', flush=True)
         while all(process.poll() is None for process in processes):
             time.sleep(0.5)
     except KeyboardInterrupt:

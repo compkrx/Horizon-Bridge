@@ -73,7 +73,7 @@ def test_upload_to_download(api):
     report = client.get(base + '/artifacts/conversion-report.json', headers=auth)
     assert report.json() == result['report']
     assert report.headers['cache-control'] == 'no-store, private'
-    source = client.get(base + '/artifacts/horizonbridge-source.zip', headers=auth)
+    source = client.get(base + '/artifacts/horizonrelay-source.zip', headers=auth)
     with zipfile.ZipFile(io.BytesIO(source.content)) as archive:
         assert {'conversion-report.json', 'PORTING.md'}.issubset(archive.namelist())
 

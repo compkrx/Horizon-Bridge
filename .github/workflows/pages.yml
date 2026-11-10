@@ -1,10 +1,12 @@
-name: Test and deploy GitHub Pages
+name: Test and deploy HorizonRelay
 
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
 
 permissions:
   contents: read
@@ -16,37 +18,69 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.publish.outputs.enabled }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Refresh upstream Nightly catalog
+        id: catalog
+        if: github.event_name != 'pull_request'
+        env:
+          SITE_OWNER: ${{ github.repository_owner }}
+          SITE_REPOSITORY: ${{ github.event.repository.name }}
+        run: |
+          path="${SITE_REPOSITORY}/"
+          if [[ "${SITE_REPOSITORY,,}" == "${SITE_OWNER,,}.github.io" ]]; then path=''; fi
+          previous="https://${SITE_OWNER}.github.io/${path}browser/nightlies.json"
+          python3 scripts/refresh_nightlies.py --previous-url "$previous" --github-output "$GITHUB_OUTPUT"
+      - name: Select Pages build
+        id: publish
+        env:
+          CHANGED: ${{ steps.catalog.outputs.changed }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == 'schedule' && "$CHANGED" == 'false' ]]; then
+            echo 'enabled=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        if: steps.publish.outputs.enabled == 'true'
         with:
           python-version: '3.12'
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        if: steps.publish.outputs.enabled == 'true'
         with:
           distribution: temurin
           java-version: '21'
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        if: steps.publish.outputs.enabled == 'true'
         with:
           node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: python -m pip install -r api/requirements.txt -r tests/requirements.txt
+        if: steps.publish.outputs.enabled == 'true'
       - run: python -m pytest -q
+        if: steps.publish.outputs.enabled == 'true'
       - run: npm ci
+        if: steps.publish.outputs.enabled == 'true'
         working-directory: frontend
       - run: npm run build:pages
+        if: steps.publish.outputs.enabled == 'true'
         working-directory: frontend
       - run: npx playwright install --with-deps chromium
+        if: steps.publish.outputs.enabled == 'true'
         working-directory: frontend
       - run: npm run test:pages
+        if: steps.publish.outputs.enabled == 'true'
         working-directory: frontend
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: steps.publish.outputs.enabled == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         with:
           path: frontend/dist
 
   deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: needs.test.outputs.publish == 'true' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: test
     runs-on: ubuntu-latest
     permissions:

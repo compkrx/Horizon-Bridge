@@ -1,4 +1,17 @@
-import type { Artifact, Report } from '../api'
+import type { Artifact, Report, Target } from '../api'
+
+export interface NightlyTarget extends Target {
+  date: string
+  evidence: string
+  contentApi: string | null
+  nativeStartup: boolean
+}
+
+export interface NightlyCatalog {
+  schema: 1
+  current: string
+  targets: NightlyTarget[]
+}
 
 export interface BrowserReport extends Report {
   inspection: {classCount: number; methodCount: number; javaVersion: number | null; resourceCount: number; expandedSize: number}
@@ -14,5 +27,5 @@ export interface BrowserResult {
 }
 
 export type Stage = 'loading' | 'inspecting' | 'translating' | 'packaging'
-export type WorkerInput = {file: File; base: string}
+export type WorkerInput = {file: File; base: string; targetId: string}
 export type WorkerOutput = {stage: Stage} | {result: BrowserResult} | {error: string}

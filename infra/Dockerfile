@@ -1,4 +1,4 @@
-ARG TOOLCHAIN_IMAGE=horizonbridge-toolchain:26.3
+ARG TOOLCHAIN_IMAGE=horizonrelay-toolchain:26.3
 
 FROM debian:trixie-slim AS decompiler
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*

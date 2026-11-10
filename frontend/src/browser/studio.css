@@ -25,6 +25,12 @@
 .batch-list li > svg { color: #9beab7; }
 .batch-list strong, .batch-list p { overflow-wrap: anywhere; }
 .batch-list p { color: #aebfb4; font-size: .8rem; }
+.nightly-picker { display: grid; gap: 8px; margin-top: 18px; }
+.nightly-heading, .nightly-meta { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+.nightly-heading > label { font-weight: 650; }
+.nightly-picker select { width: 100%; min-width: 0; padding: 9px; color: #eef7f0; border: 1px solid #385346; border-radius: 8px; background: #111b15; }
+.nightly-picker a { color: #a3edbd; font-size: .82rem; text-decoration: underline; }
+.nightly-meta .permission, .nightly-info { color: #aebfb4; font-size: .83rem; }
 .browser-permission { display: flex; align-items: baseline; gap: 8px; margin-top: 14px; }
 .browser-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
 .browser-results { margin-top: 32px; scroll-margin-top: 24px; }

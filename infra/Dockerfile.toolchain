@@ -1,4 +1,4 @@
-# Build with: docker build -f infra/Dockerfile.toolchain -t horizonbridge-toolchain:26.3 .
+# Build with: docker build -f infra/Dockerfile.toolchain -t horizonrelay-toolchain:26.3 .
 FROM rust:1.99.1-trixie AS build
 
 ARG HORIZON_REV=fdc87aecdbd116bf1e08adcd062fcbaea8c2e2ca

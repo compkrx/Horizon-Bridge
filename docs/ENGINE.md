@@ -1,6 +1,6 @@
 # Java inspection and translation
 
-HorizonBridge reads the JAR archive and class-file structures directly. It never loads a submitted class into the JVM. The optional Vineflower stage reconstructs Java as a review aid. The deterministic translator uses the original bytecode so the result does not depend on the decompiler's formatting or inferred names.
+HorizonRelay reads the JAR archive and class-file structures directly. It never loads a submitted class into the JVM. The optional Vineflower stage reconstructs Java as a review aid. The deterministic translator uses the original bytecode so the result does not depend on the decompiler's formatting or inferred names.
 
 | Input | Recovered evidence |
 | --- | --- |
@@ -10,7 +10,7 @@ HorizonBridge reads the JAR archive and class-file structures directly. It never
 | Legacy Java | `mcmod.info`, legacy loader manifest entries, and recognizable Minecraft classes |
 | Resource archive | Minecraft assets and data inventory when there are no recognized loader descriptors or classes |
 
-When a JAR has multiple loader descriptors, the report identifies the primary descriptor used. The dependency list reports declared IDs. Required third-party Java dependencies appear as unmapped because HorizonBridge does not resolve Java libraries against Horizon. Nested JARs, Forge access transformers, Mixin targets, and loader registrations require separate review. Feature detection from class references is heuristic and may miss obfuscated or dynamically loaded code.
+When a JAR has multiple loader descriptors, the report identifies the primary descriptor used. The dependency list reports declared IDs. Required third-party Java dependencies appear as unmapped because HorizonRelay does not resolve Java libraries against Horizon. Nested JARs, Forge access transformers, Mixin targets, and loader registrations require separate review. Feature detection from class references is heuristic and may miss obfuscated or dynamically loaded code.
 
 ## Translated methods
 

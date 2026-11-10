@@ -1,4 +1,4 @@
-# HorizonBridge frontend
+# HorizonRelay frontend
 
 The React, TypeScript and Tailwind site uses a same-origin `/api` connection. Vite development and preview forward that path to `http://127.0.0.1:8788` by default. Set `HB_DEV_API_ORIGIN` in the shell to target a different local API. In production, Cloudflare Pages serves the SPA and the Pages Function forwards API requests to the configured backend.
 

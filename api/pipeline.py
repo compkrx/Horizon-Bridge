@@ -6,9 +6,9 @@ import sys
 import zipfile
 from pathlib import Path
 
-from engine.horizonbridge.horizon import convert, target
-from engine.horizonbridge.inspect_jar import inspect_jar
-from engine.horizonbridge.translate import translate
+from engine.horizonrelay.horizon import convert, target
+from engine.horizonrelay.inspect_jar import inspect_jar
+from engine.horizonrelay.translate import translate
 
 
 def write_json(path, value):
@@ -57,7 +57,7 @@ def check_translated(files, source_dir, progress, validation, diagnostics):
     if not files:
         return
     (source_dir / 'Cargo.toml').write_text(
-        '[package]\nname = "horizonbridge_port"\nversion = "0.1.0"\nedition = "2021"\n'
+        '[package]\nname = "horizonrelay_port"\nversion = "0.1.0"\nedition = "2021"\n'
         '\n[lib]\npath = "src/translated.rs"\n', encoding='utf-8')
 
     def tool(name, arguments):
@@ -108,7 +108,7 @@ def porting_guide(report):
                 'Horizon native bundles contain Rust source. The launcher builds that source into a custom client.',
                 'A technical check covers only the stages shown in the report. Run game tests before claiming compatibility.',
                 '', '## Reproduce the validation', '',
-                'Build the pinned HorizonBridge toolchain and run the native profile in the project deployment guide.',
+                'Build the pinned HorizonRelay toolchain and run the native profile in the project deployment guide.',
                 'Submit the same authorized JAR with the same target to reproduce the deterministic result.',
                 'When this archive contains a root `Cargo.toml`, run `cargo check --offline` to check the standalone Rust library.',
                 'If this archive contains a native bundle workspace, run the official `cargo horizon-mod check` workflow',
@@ -178,10 +178,10 @@ def run(workspace):
     files = list(contained_files(source_dir))
     if len(files) > 12000 or sum(path.stat().st_size for path, _ in files) > 120 * 1024 * 1024:
         raise ValueError('Generated source exceeded its size budget.')
-    with zipfile.ZipFile(artifacts / 'horizonbridge-source.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+    with zipfile.ZipFile(artifacts / 'horizonrelay-source.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
         for path, name in files:
             archive.write(path, name)
-    downloads = [*packages, {'name': 'horizonbridge-source.zip', 'kind': 'source'},
+    downloads = [*packages, {'name': 'horizonrelay-source.zip', 'kind': 'source'},
                  {'name': 'conversion-report.json', 'kind': 'report'}]
     for item in downloads:
         item['size'] = (artifacts / item['name']).stat().st_size

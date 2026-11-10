@@ -67,7 +67,7 @@ license = "CC0-1.0"
 modId = "bridge_forge"
 displayName = "Bridge Forge"
 version = "${file.jarVersion}"
-authors = "HorizonBridge Test Fixture"
+authors = "HorizonRelay Test Fixture"
 [[dependencies.bridge_forge]]
 modId = "minecraft"
 mandatory = true
@@ -101,7 +101,7 @@ versionRange = "[2,)"
         }),
     })
     fixture_jar(output / "asset.jar", {
-        "fabric.mod.json": fabric_descriptor(id="hb_recipe", name="HorizonBridge recipe fixture",
+        "fabric.mod.json": fabric_descriptor(id="hb_recipe", name="HorizonRelay recipe fixture",
                                               minecraft="26.3", depends={"minecraft": "26.3"}),
         "data/hb_recipe/recipe/test.json": json.dumps({
             "type": "minecraft:crafting_shapeless", "ingredients": ["minecraft:stick"],
