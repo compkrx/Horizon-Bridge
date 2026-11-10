@@ -7,6 +7,8 @@ import type { BrowserResult, ConversionMode, NightlyCatalog, Stage, WorkerOutput
 import { RewritePanel } from '../RewritePanel'
 import { runDeviceRewrite } from './run-device-rewrite'
 import { ModuleBoard } from './ModuleBoard'
+import { NightlyPicker } from './NightlyPicker'
+import { NativePackageInspector } from './NativePackageInspector'
 import { Appearance } from './Appearance'
 import './studio.css'
 
@@ -16,9 +18,10 @@ const catalogUrl = new URL('browser/nightlies.json', base).href
 const maxFiles = 12
 const maxSize = 32 * 1024 * 1024
 const labels = { loading: 'Loading engine', inspecting: 'Inspecting JAR', translating: 'Translating bytecode', packaging: 'Building downloads' }
+const modeLabels = { all: 'All supported conversions', basic: 'Basic functions only', inspect: 'Inspect only' } satisfies Record<ConversionMode, string>
 const examples = [{name: 'logic.jar', title: 'Java arithmetic'}, {name: 'asset.jar', title: 'Crafting recipe'}, {name: 'startup.jar', title: 'Fabric startup hook'}]
 
-type Item = {id: string; file: File; stage: Stage | 'ready' | 'queued' | 'failed' | 'cancelled'; result?: BrowserResult; error?: string}
+type Item = {id: string; file: File; authorized: boolean; stage: Stage | 'ready' | 'queued' | 'failed' | 'cancelled'; result?: BrowserResult; completedMode?: ConversionMode; error?: string}
 
 function run(worker: Worker, file: File, targetId: string, mode: ConversionMode, progress: (stage: Stage) => void, signal: AbortSignal): Promise<BrowserResult> {
   return new Promise((resolve, reject) => {
@@ -96,6 +99,7 @@ function WorkspaceResults({item, result}: {item: Item; result: BrowserResult}) {
     <Results job={job} config={null} access={access} />
     <RewritePanel choices={result.rewriteSources} model="Qwen2.5-Coder 0.5B" device
       unavailable={'gpu' in navigator ? undefined : 'WebGPU is unavailable in this browser. Basic conversion still works.'}
+      preview={(id) => result.rewriteSources.find((source) => source.id === id)?.text}
       run={(id, progress, signal) => runDeviceRewrite(result.rewriteSources.find((source) => source.id === id)!, report.target.horizonRevision, progress, signal)} />
   </div>
 }
@@ -103,7 +107,6 @@ function WorkspaceResults({item, result}: {item: Item; result: BrowserResult}) {
 export default function Studio() {
   const [items, setItems] = useState<Item[]>([])
   const [selected, setSelected] = useState('')
-  const [authorized, setAuthorized] = useState(false)
   const [busy, setBusy] = useState(false)
   const [sample, setSample] = useState('')
   const [error, setError] = useState('')
@@ -111,18 +114,14 @@ export default function Studio() {
   const [catalog, setCatalog] = useState<NightlyCatalog>()
   const [catalogError, setCatalogError] = useState('')
   const [targetId, setTargetId] = useState('')
-  const [showArchived, setShowArchived] = useState(false)
   const [mode, setMode] = useState<ConversionMode>('all')
   const [tab, setTab] = useState('Studio')
   const fileInput = useRef<HTMLInputElement>(null)
   const active = useRef<{ controller: AbortController; worker: Worker } | null>(null)
   const current = items.find((item) => item.id === selected)
-  const cutoff = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10)
   const targets = catalog?.targets ?? []
-  const recent = targets.filter((item) => item.date >= cutoff)
-  const archived = targets.filter((item) => item.date < cutoff)
   const target = targets.find((item) => item.id === targetId)
-  const showOld = showArchived || Boolean(target && target.date < cutoff)
+  const authorized = items.length > 0 && items.every((item) => item.authorized)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -141,10 +140,17 @@ export default function Studio() {
   function add(files: File[]) {
     if (busy) return
     const valid = files.filter((file) => /\.jar$/i.test(file.name) && file.size >= 4 && file.size <= maxSize)
-    const added = valid.slice(0, maxFiles - items.length).map((file) => ({id: crypto.randomUUID(), file, stage: 'queued' as const}))
+    const added = valid.slice(0, maxFiles - items.length).map((file) => ({id: crypto.randomUUID(), file, authorized: false, stage: 'queued' as const}))
     setError(valid.length !== files.length ? 'Select JAR files between 4 bytes and 32 MiB.' : added.length !== valid.length ? 'A session holds up to 12 JARs. Clear results or remove a JAR to add more.' : '')
     setItems((previous) => [...previous, ...added.slice(0, maxFiles - previous.length)])
-    if (added.length) setAuthorized(false)
+  }
+
+  function requeue(id: string) {
+    if (active.current) return
+    setItems((list) => list.map((item) => item.id === id
+      ? {id: item.id, file: item.file, authorized: item.authorized, stage: 'queued'}
+      : item))
+    if (selected === id) setSelected(items.find((item) => item.id !== id && item.result)?.id ?? '')
   }
 
   async function addSample(name: string) {
@@ -175,7 +181,7 @@ export default function Studio() {
         if (controller.signal.aborted) break
         try {
           const result = await run(worker, item.file, target.id, mode, (stage) => update(item.id, {stage}), controller.signal)
-          update(item.id, {stage: 'ready', result})
+          update(item.id, {stage: 'ready', result, completedMode: mode})
           setSelected((value) => value || item.id)
         } catch (error) {
           update(item.id, controller.signal.aborted ? {stage: 'cancelled'} : {stage: 'failed', error: displayError(error)})
@@ -195,7 +201,7 @@ export default function Studio() {
     <a href="#studio" className="skip-link">Skip to converter</a>
     <header className="topbar browser-header"><div className="site-width topbar-inner">
       <a href="#" className="brand"><img src={new URL('bridge.svg', base).href} width="32" height="32" alt="" /><strong>Horizon<span>Relay</span></strong></a>
-      <nav className="browser-nav" aria-label="Primary">{([['Studio', '#studio'], ['Versions', '#versions'], ['AI', current?.result ? '#on-device-ai' : '#guide-ai'], ['Guide', '#guide'], ['Look', '#appearance']] as const).map(([name, href]) =>
+      <nav className="browser-nav" aria-label="Primary">{([['Studio', '#studio'], ['Versions', '#versions'], ['Packages', '#native-package'], ['AI', current?.result ? '#on-device-ai' : '#guide-ai'], ['Guide', '#guide'], ['Look', '#appearance']] as const).map(([name, href]) =>
         <a key={name} href={href} aria-current={tab === name ? 'location' : undefined} onClick={() => setTab(name)}>{name}</a>)}</nav>
       <a className="service-pill" href={repo}><GitFork size={14} /> GitHub</a>
     </div></header>
@@ -217,45 +223,44 @@ export default function Studio() {
           </div>
           <div className="browser-examples" aria-label="Example JARs"><span className="eyebrow">Try an example</span>{examples.map(({name,title}) =>
             <button className="btn outline compact" type="button" key={name} onClick={() => void addSample(name)} disabled={busy || !!sample || items.length >= maxFiles}>{title}</button>)}</div>
-          {items.length > 0 && <ul className="batch-list" aria-label="Conversion queue">{items.map((item) => <li key={item.id}>
-            <Archive size={17} /><div><strong>{item.file.name}</strong><p>{bytes(item.file.size)} · {item.stage in labels ? labels[item.stage as Stage] : item.stage}</p>{item.error && <p className="error" role="alert">{item.error}</p>}</div>
-            {item.result ? <button className="btn outline compact" type="button" aria-pressed={selected === item.id} onClick={() => {
-              setSelected(item.id)
-              requestAnimationFrame(() => document.getElementById('browser-results')?.scrollIntoView({block: 'start'}))
-            }}>View result</button>
-              : <button className="btn plain compact" type="button" aria-label={`Remove ${item.file.name}`} disabled={busy} onClick={() => setItems((list) => list.filter((entry) => entry.id !== item.id))}><X size={17} /></button>}
-          </li>)}</ul>}
+          {items.length > 0 && <ul className="batch-list" aria-label="Conversion queue">{items.map((item) => {
+            const previousTarget = item.result?.report.target
+            const settingsChanged = previousTarget && (previousTarget.id !== targetId || item.completedMode !== mode)
+            const canRequeue = item.stage === 'ready' || item.stage === 'failed' || item.stage === 'cancelled'
+            return <li key={item.id}>
+              <Archive size={17} /><div><strong>{item.file.name}</strong><p>{bytes(item.file.size)} · {item.stage in labels ? labels[item.stage as Stage] : item.stage}</p>
+                {previousTarget && item.completedMode && <p>Result · {previousTarget.label} · {modeLabels[item.completedMode]}</p>}
+                {settingsChanged && <p>Requeue to apply the selected settings.</p>}
+                {item.error && <p className="error" role="alert">{item.error}</p>}
+              </div>
+              <div className="flex max-w-40 flex-wrap justify-end gap-1">
+                {item.result && <button className="btn outline compact" type="button" aria-pressed={selected === item.id} onClick={() => {
+                  setSelected(item.id)
+                  requestAnimationFrame(() => document.getElementById('browser-results')?.scrollIntoView({block: 'start'}))
+                }}>View result</button>}
+                {canRequeue && <button className="btn plain compact" type="button" aria-label={`Requeue ${item.file.name}`} disabled={busy} onClick={() => requeue(item.id)}>Requeue</button>}
+                {!item.result && <button className="btn plain compact" type="button" aria-label={`Remove ${item.file.name}`} disabled={busy} onClick={() => setItems((list) => list.filter((entry) => entry.id !== item.id))}><X size={17} /></button>}
+              </div>
+            </li>
+          })}</ul>}
           <p className="sr-only" role="status">{ready > 0 ? `${ready} of ${items.length} results ready.` : ''}</p>
           {error && <p className="error" role="alert">{error}</p>}
-          <section className="nightly-picker" id="versions" aria-label="Conversion target">
-            <div className="nightly-heading"><label htmlFor="nightly-target">Horizon Nightly target</label><a href={catalogUrl} download="horizon-nightlies.json">Download catalog</a></div>
-            <select id="nightly-target" value={targetId} onChange={(event) => setTargetId(event.target.value)} disabled={busy || !catalog}>
-              {!catalog && <option value="">{catalogError ? 'Catalog unavailable' : 'Loading Nightlies…'}</option>}
-              {recent.length > 0 && <optgroup label="Last 30 days">{recent.map((item) => <option key={item.id} value={item.id}>{item.label}{item.id === catalog?.current ? ' · Current' : ''}</option>)}</optgroup>}
-              {showOld && archived.length > 0 && <optgroup label="Archived Nightlies">{archived.map((item) => <option key={item.id} value={item.id}>{item.label}{item.id === catalog?.current ? ' · Current' : ''}</option>)}</optgroup>}
-            </select>
-            {catalogError && <p className="error" role="alert">{catalogError}</p>}
-            {catalog && <div className="nightly-meta">
-              <label className="permission"><input type="checkbox" checked={showOld} disabled={busy || !archived.length || !recent.length} onChange={(event) => {
-                setShowArchived(event.target.checked)
-                if (!event.target.checked && target && target.date < cutoff) setTargetId(recent[0]?.id ?? catalog.current)
-              }} /> Show archived Nightlies ({archived.length})</label>
-              {target && <a href={`https://github.com/horizon-rust/horizon/tree/${target.horizonRevision}`} target="_blank" rel="noreferrer">Pinned source ↗</a>}
-            </div>}
-            {target && <p className="nightly-info">{target.minecraft ? `Minecraft ${target.minecraft}` : 'Minecraft version unconfirmed'} · {target.nativeStartup ? 'Startup source available' : 'Startup hook unconfirmed'} · {target.contentApi === '0.2' && target.minecraft === '26.3' ? 'Recipe export available' : 'Recipe export unconfirmed'}</p>}
-          </section>
+          <NightlyPicker catalog={catalog} catalogError={catalogError} catalogUrl={catalogUrl} target={target} selectTarget={setTargetId} busy={busy} />
           <div className="nightly-picker">
             <label htmlFor="conversion-mode">Conversion mode</label>
             <select id="conversion-mode" value={mode} disabled={busy} onChange={(event) => setMode(event.target.value as ConversionMode)}>
-              <option value="all">All supported conversions</option><option value="basic">Basic functions only</option><option value="inspect">Inspect only</option>
+              <option value="all">{modeLabels.all}</option><option value="basic">{modeLabels.basic}</option><option value="inspect">{modeLabels.inspect}</option>
             </select>
             <p className="nightly-info">{mode === 'basic' ? 'Generate standalone Rust for supported integer and boolean methods.' : mode === 'inspect' ? 'Report metadata and bytecode without generating a port.' : 'Generate supported methods, recipe bundles, and known Horizon startup bindings.'}</p>
           </div>
-          <label className="permission browser-permission"><input type="checkbox" checked={authorized} disabled={busy} onChange={(event) => setAuthorized(event.target.checked)} /> I own these mods or have permission to convert them.</label>
+          <label className="permission browser-permission"><input type="checkbox" checked={authorized} disabled={busy || !items.length} onChange={(event) => {
+            const checked = event.target.checked
+            setItems((list) => list.map((item) => ({...item, authorized: checked})))
+          }} /> I own these mods or have permission to convert them.</label>
           <div className="browser-actions">
             <button className="btn accent" type="button" disabled={!count || !authorized || busy || !!sample || !target} onClick={() => void convert()}>{busy ? <LoaderCircle size={16} className="spin" /> : <ArrowRight size={16} />} {busy ? 'Processing batch' : `Convert ${count || ''} ${count === 1 ? 'JAR' : 'JARs'}`}</button>
             {busy ? <button className="btn outline" type="button" onClick={() => {active.current?.controller.abort(); active.current?.worker.terminate()}}>Cancel batch</button>
-              : items.length > 0 && <button className="btn plain" type="button" onClick={() => {setItems([]); setSelected(''); setError(''); setAuthorized(false)}}>Clear session</button>}
+              : items.length > 0 && <button className="btn plain" type="button" onClick={() => {setItems([]); setSelected(''); setError('')}}>Clear session</button>}
           </div>
         </section>
         <aside className="sidebar"><section className="panel side-panel"><div className="side-title"><LockKeyhole size={19} /><h2>Private by design</h2></div><p>Analysis runs in a WebAssembly worker. Reports and downloads stay in memory until you clear or close the tab.</p></section>
@@ -263,9 +268,15 @@ export default function Studio() {
           <section className="panel side-panel"><div className="side-title"><Code2 size={19} /><h2>Need native validation?</h2></div><p>The self-hosted edition runs the pinned Horizon build and can emit verified native bundles.</p><a href={`${repo}/blob/main/docs/HORIZON.md`}>Toolchain instructions <ArrowRight size={15} /></a></section></aside>
       </div>
       {current?.result && <WorkspaceResults key={current.id} item={current} result={current.result} />}
+      <NativePackageInspector base={base} targets={targets} selected={target} busy={busy} chooseTarget={(item) => {
+        setTargetId(item.id)
+        setTab('Versions')
+        document.getElementById('versions')?.scrollIntoView({block: 'start'})
+      }} />
       <section className="panel result-section browser-compat relay-guide" id="guide" aria-labelledby="guide-title">
         <div className="panel-title"><BookOpen size={21} /><h2 id="guide-title">Guides and notices</h2></div>
         <details open><summary>Start a conversion</summary><p>Add a JAR or an example, choose the target Nightly and conversion mode, confirm your rights, then start the batch. Use the report to see which behaviors still need a manual port.</p></details>
+        <details><summary>Inspect a native package</summary><p>Open a .hnmod from the Packages tab to check its two revision pins, declared mixins, file inventory, and SHA-256 fingerprint. The inspector reads the archive locally. Use Horizon’s official package checker and a disposable instance for validation.</p></details>
         <details id="guide-ai"><summary>Run an AI rewrite on your device</summary><p>After conversion, open its result and choose a method under On-device AI rewrite. An initial model download is required. Leave the tab open. Mobile browsers may pause a background tab or a locked screen, and low-memory devices may fail to load the model.</p></details>
         <details id="guide-local"><summary>Connect a self-hosted model</summary><p>Run the local edition with Ollama or a compatible inference server, enable AI for the job, and choose a reconstructed Java file or JVM method from the result.</p><a href={`${repo}/blob/main/docs/AI.md`}>Local AI setup ↗</a></details>
         <details><summary>Understand validation</summary><p>AI outputs are Rust drafts. Review the selected source, check the target APIs, and compile or test in a disposable instance before integrating the draft into a native mod.</p></details>

@@ -137,9 +137,9 @@ class EngineTests(unittest.TestCase):
 
     def test_partial_translation_and_ir(self):
         translated = translate(self.inspect("logic"))
-        self.assertEqual(len(translated["methodMap"]), 7)
+        self.assertEqual(len(translated["methodMap"]), 8)
         self.assertIsNone(translated["native"])
-        self.assertIn("Unsupported JVM instruction 0x6c", translated["features"][-1]["detail"])
+        self.assertIn("Instance or synchronized methods", translated["features"][-1]["detail"])
         self.assertEqual(translated["ir"]["classCount"], 1)
         self.assertEqual(json.loads(json.dumps(translated["ir"])), translated["ir"])
 
@@ -197,3 +197,86 @@ class EngineTests(unittest.TestCase):
             _lower_method("fixture/Invalid", {**frame, "instructions": [[0, "goto", 100], [1, "return"]]})
         with self.assertRaisesRegex(ValueError, "underflow"):
             _lower_method("fixture/Invalid", {**frame, "instructions": [[0, "return"]]})
+
+    def test_invalid_long_operand_slots_and_returns_are_refused(self):
+        frame = {"name": "bad", "descriptor": "(J)J", "params": "J", "returns": "J", "locals": 2, "stack": 2}
+        cases = [
+            ({"stack": 1}, [[0, "lload", 0], [1, "lreturn"]], "stack exceeds"),
+            ({}, [[0, "lload", 1], [1, "lreturn"]], "index exceeds"),
+            ({}, [[0, "lload", 0], [1, "return"]], "stack types"),
+            ({}, [[0, "const", 0], [1, "return"]], "method descriptor"),
+            ({}, [[0, "const", 0], [1, "store", 1], [2, "lload", 0], [3, "lreturn"]], "before assignment"),
+        ]
+        for changes, instructions, message in cases:
+            with self.subTest(instructions=instructions), self.assertRaisesRegex(ValueError, message):
+                _lower_method("fixture/Invalid", {**frame, **changes, "instructions": instructions})
+        branches = [[0, "const", 0], [1, "if", "eq", False, 4], [2, "const", 0],
+                    [3, "goto", 5], [4, "lconst", "0"], [5, "lreturn"]]
+        with self.assertRaisesRegex(ValueError, "stacks disagree"):
+            _lower_method("fixture/Invalid", {**frame, "instructions": branches})
+
+    def test_integer_division_and_remainder_semantics(self):
+        rustc = os.environ.get("HB_RUSTC") or shutil.which("rustc")
+        source = self.fixtures / "Division.java"
+        source.write_text("""
+package fixture;
+public final class Division {
+    public static int intDiv(int a, int b) { return a / b; }
+    public static int intRem(int a, int b) { return a % b; }
+    public static long longDiv(long a, long b) { return a / b; }
+    public static long longRem(long a, long b) { return a % b; }
+    public static long mixed(int a, long b, int c) {
+        return ((long) (a + Integer.MAX_VALUE) % b) / c;
+    }
+    public static long guarded(long a, long b) {
+        long divisor = b == 0L ? 1L : -b;
+        return a / divisor;
+    }
+    public static int large(int b) { return (int) (9007199254740993L % b); }
+    public static int catches(int a, int b) {
+        try { return a / b; } catch (ArithmeticException ex) { return 42; }
+    }
+}
+""", encoding="utf-8")
+        subprocess.run([shutil.which("javac"), "-encoding", "UTF-8", "--release", "8", "-Xlint:-options",
+                        "-d", str(self.fixtures), str(source)], check=True, timeout=20)
+        jar = fixture_jar(self.fixtures / "division.jar", {
+            "fabric.mod.json": fabric_descriptor(),
+            "fixture/Division.class": (self.fixtures / "fixture" / "Division.class").read_bytes(),
+        })
+        translated = translate(inspect_jar(jar))
+        methods = {method["name"]: method for method in translated["ir"]["classes"][0]["methods"]}
+        for name, op in [("intDiv", "idiv"), ("intRem", "irem"), ("longDiv", "ldiv"), ("longRem", "lrem")]:
+            self.assertTrue(any(inst[1] == op for inst in methods[name]["instructions"]))
+        self.assertIn(["lconst", "9007199254740993"], [inst[1:] for inst in methods["large"]["instructions"]])
+        self.assertIn("exception handlers", methods["catches"]["reason"])
+        mapping = {entry["java"].split(".")[-1].split("(")[0]: entry["rust"] for entry in translated["methodMap"]}
+        self.assertEqual(set(mapping), {"intDiv", "intRem", "longDiv", "longRem", "mixed", "guarded", "large"})
+        if not rustc:
+            return
+        checks = [
+            ("intDiv", "-7, 3", "Ok(-2)"),
+            ("intDiv", "i32::MIN, -1", "Ok(i32::MIN)"),
+            ("intRem", "-7, 3", "Ok(-1)"),
+            ("intRem", "7, -3", "Ok(1)"),
+            ("intRem", "i32::MIN, -1", "Ok(0)"),
+            ("longDiv", "-7, 3", "Ok(-2)"),
+            ("longDiv", "i64::MIN, -1", "Ok(i64::MIN)"),
+            ("longRem", "-7, 3", "Ok(-1)"),
+            ("longRem", "7, -3", "Ok(1)"),
+            ("longRem", "i64::MIN, -1", "Ok(0)"),
+            ("mixed", "1, 3, -2", "Ok(1)"),
+            ("guarded", "20, 0", "Ok(20)"),
+            ("guarded", "20, 3", "Ok(-6)"),
+            ("large", "7", "Ok(5)"),
+        ]
+        checks.extend((name, "1, 0", "Err(JavaArithmeticError::DivisionByZero)")
+                      for name in ("intDiv", "intRem", "longDiv", "longRem"))
+        code = translated["files"]["src/translated.rs"] + "\nfn main() {\n"
+        code += "\n".join(f"    assert_eq!({mapping[name]}({args}), {value});" for name, args, value in checks)
+        source = self.fixtures / "division_probe.rs"
+        source.write_text(code + "\n}\n", encoding="utf-8")
+        executable = self.fixtures / ("division_probe.exe" if os.name == "nt" else "division_probe")
+        subprocess.run([rustc, "--edition=2021", "-D", "warnings", str(source), "-o", str(executable)],
+                       check=True, timeout=60)
+        subprocess.run([str(executable)], check=True, timeout=10)

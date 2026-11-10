@@ -1,22 +1,16 @@
 import type { PyodideInterface } from 'pyodide'
 import type { BrowserResult, NightlyCatalog, Stage, WorkerInput, WorkerOutput } from './types'
+import { loadBrowserEngine } from './load-engine'
 
 let runtime: Promise<{py: PyodideInterface; catalog: NightlyCatalog}> | undefined
 const post = (message: WorkerOutput, transfer: Transferable[] = []) => self.postMessage(message, { transfer })
 
 async function prepare(base: string) {
-  const indexURL = new URL('browser/runtime/', base).href
-  const moduleUrl = new URL('pyodide.mjs', indexURL).href
-  const [{ loadPyodide }, response, nightlies] = await Promise.all([
-    import(/* @vite-ignore */ moduleUrl) as Promise<typeof import('pyodide')>,
-    fetch(new URL('browser/engine.json', base)),
+  const [py, nightlies] = await Promise.all([
+    loadBrowserEngine(base),
     fetch(new URL('browser/nightlies.json', base)),
   ])
-  if (!response.ok || !nightlies.ok) throw new Error('Could not load the converter or Nightly catalog.')
-  const files = await response.json() as Record<string, string>
-  const py = await loadPyodide({ indexURL })
-  py.FS.mkdir('/home/pyodide/horizonrelay')
-  for (const [name, content] of Object.entries(files)) py.FS.writeFile(`/home/pyodide/horizonrelay/${name}`, content)
+  if (!nightlies.ok) throw new Error('Could not load the Nightly catalog.')
   py.runPython('import json, shutil\nfrom horizonrelay.browser import convert_browser')
   return {py, catalog: await nightlies.json() as NightlyCatalog}
 }

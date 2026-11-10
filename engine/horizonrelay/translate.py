@@ -15,13 +15,19 @@ _ARITHMETIC = {
     "shr": "{left}.wrapping_shr({right} as u32)",
     "ushr": "({left} as u32).wrapping_shr({right} as u32) as i32",
     "min": "{left}.min({right})", "max": "{left}.max({right})",
+    "idiv": "{left}.wrapping_div({right})", "irem": "{left}.wrapping_rem({right})",
 }
+_LONG_BINARY = {"ladd": "add", "lsub": "sub", "lmul": "mul", "ldiv": "idiv", "lrem": "irem"}
+_FALLIBLE = {"idiv", "irem", "ldiv", "lrem"}
 _UNARY = {
     "neg": "{value}.wrapping_neg()", "abs": "{value}.wrapping_abs()", "narrow_byte": "{value} as i8 as i32",
     "narrow_char": "{value} as u16 as i32", "narrow_short": "{value} as i16 as i32",
 }
 _COMPARISONS = {"eq": "==", "ne": "!=", "lt": "<", "ge": ">=", "gt": ">", "le": "<="}
-_END_BLOCK = {"if", "goto", "return"}
+_RETURNS = {"return", "lreturn"}
+_END_BLOCK = {"if", "goto", *_RETURNS}
+_LOCAL_TYPES = {"load": "I", "store": "I", "increment": "I", "lload": "J", "lstore": "J"}
+_STORES = {"store", "lstore"}
 _FUNCTION_LIMIT = 220
 _SOURCE_LIMIT = 560 * 1024
 
@@ -46,7 +52,7 @@ def _blocks(instructions: list[list]) -> dict[int, list[list]]:
 
 def _successors(block: list[list], next_block: int | None) -> list[int]:
     _, last, *args = block[-1]
-    if last == "return":
+    if last in _RETURNS:
         return []
     if last == "goto":
         return [args[-1]]
@@ -55,67 +61,108 @@ def _successors(block: list[list], next_block: int | None) -> list[int]:
     return [args[-1], next_block] if last == "if" else [next_block]
 
 
-def _stack_effect(opcode: str, args: list) -> tuple[int, int]:
+def _stack_effect(opcode: str, args: list) -> tuple[str, str]:
     if opcode in {"const", "load"}:
-        return 0, 1
+        return "", "I"
     if opcode in {"store", "pop", "return"}:
-        return 1, 0
+        return "I", ""
     if opcode in _ARITHMETIC:
-        return 2, 1
+        return "II", "I"
     if opcode in _UNARY:
-        return 1, 1
+        return "I", "I"
     if opcode == "dup":
-        return 1, 2
+        return "I", "II"
     if opcode == "if":
-        return (2 if args[1] else 1), 0
-    return 0, 0
+        return ("II" if args[1] else "I"), ""
+    if opcode in {"lconst", "lload"}:
+        return "", "J"
+    if opcode in {"lstore", "lreturn"}:
+        return "J", ""
+    if opcode in _LONG_BINARY:
+        return "JJ", "J"
+    if opcode == "lcmp":
+        return "JJ", "I"
+    if opcode == "lneg":
+        return "J", "J"
+    if opcode == "i2l":
+        return "I", "J"
+    if opcode == "l2i":
+        return "J", "I"
+    return "", ""
 
 
-def _verify(method: dict, blocks: dict[int, list[list]], successors: dict[int, list[int]]) -> dict[int, int]:
-    """Check operand stack height and definite assignment across all incoming edges."""
-    argument_count = len(method["params"])
-    if not blocks or argument_count > method["locals"]:
+def _slot_width(kind: str) -> int:
+    return 2 if kind == "J" else 1
+
+
+def _parameters(method: dict):
+    slot = 0
+    for kind in method["params"]:
+        yield slot, kind
+        slot += _slot_width(kind)
+
+
+def _set_local(locals_: dict[int, str], slot: int, kind: str) -> None:
+    # Writing either half of a category-2 local invalidates the previous value.
+    if locals_.get(slot - 1) == "J":
+        del locals_[slot - 1]
+    if kind == "J":
+        locals_.pop(slot + 1, None)
+    locals_[slot] = kind
+
+
+def _verify(method: dict, blocks: dict[int, list[list]], successors: dict[int, list[int]]) -> dict[int, str]:
+    """Check the typed operand stack and definite locals across all incoming edges."""
+    parameters = {slot: "J" if kind == "J" else "I" for slot, kind in _parameters(method)}
+    if not blocks or any(slot + _slot_width(kind) > method["locals"] for slot, kind in parameters.items()):
         raise ValueError("Invalid method frame.")
-    entries: dict[int, tuple[int, frozenset[int]]] = {0: (0, frozenset(range(argument_count)))}
+    entries = {0: ("", parameters)}
     pending = deque([0])
     while pending:
         current = pending.popleft()
-        depth, locals_in = entries[current]
-        initialized = set(locals_in)
+        stack, locals_in = entries[current]
+        initialized = locals_in.copy()
         for _, opcode, *args in blocks[current]:
-            if opcode in {"load", "store", "increment"}:
-                local = args[0]
-                if local >= method["locals"]:
+            if opcode in _LOCAL_TYPES:
+                local, kind = args[0], _LOCAL_TYPES[opcode]
+                if local + _slot_width(kind) > method["locals"]:
                     raise ValueError("Local variable index exceeds the method frame.")
-                if opcode == "store":
-                    initialized.add(local)
+                if opcode in _STORES:
+                    _set_local(initialized, local, kind)
                 elif local not in initialized:
                     raise ValueError("A local may be read before assignment.")
+                elif initialized[local] != kind:
+                    raise ValueError("Local variable type does not match the instruction.")
             popped, pushed = _stack_effect(opcode, args)
-            if popped > depth:
+            if len(popped) > len(stack):
                 raise ValueError("Operand stack underflow.")
-            depth += pushed - popped
-            if depth > method["stack"]:
+            if not stack.endswith(popped):
+                raise ValueError("Operand stack types do not match the instruction.")
+            stack = stack[:len(stack) - len(popped)] + pushed
+            if len(stack) + stack.count("J") > method["stack"]:
                 raise ValueError("Operand stack exceeds the method frame.")
-            if opcode == "return" and depth:
-                raise ValueError("Operand stack contains additional values at return.")
+            if opcode in _RETURNS:
+                if (method["returns"] == "J") != (opcode == "lreturn"):
+                    raise ValueError("Return instruction does not match the method descriptor.")
+                if stack:
+                    raise ValueError("Operand stack contains additional values at return.")
         for successor in successors[current]:
             if successor in entries:
-                previous_depth, previous_locals = entries[successor]
-                if previous_depth != depth:
-                    raise ValueError("Operand stack heights disagree at a branch target.")
-                merged = previous_locals.intersection(initialized)
+                previous_stack, previous_locals = entries[successor]
+                if previous_stack != stack:
+                    raise ValueError("Operand stacks disagree at a branch target.")
+                merged = {slot: kind for slot, kind in previous_locals.items() if initialized.get(slot) == kind}
                 if merged == previous_locals:
                     continue
             else:
-                merged = frozenset(initialized)
-            entries[successor] = depth, merged
+                merged = initialized.copy()
+            entries[successor] = stack, merged
             pending.append(successor)
     if len(entries) != len(blocks):
         raise ValueError("Unreachable bytecode requires manual review.")
-    if not any(block[-1][1] == "return" for block in blocks.values()):
+    if not any(block[-1][1] in _RETURNS for block in blocks.values()):
         raise ValueError("No supported return was reachable.")
-    return {entry: depth for entry, (depth, _) in entries.items()}
+    return {entry: stack for entry, (stack, _) in entries.items()}
 
 
 def _rust_name(class_name: str, method: dict) -> str:
@@ -125,47 +172,77 @@ def _rust_name(class_name: str, method: dict) -> str:
     return f"java_{readable.lower()}_{suffix}"
 
 
-def _i32(value: int) -> str:
-    return f"{value}_i32"
-
-
 def _return_expression(value: str, kind: str) -> str:
     if kind == "Z":
         return f"({value} & 1) != 0"
-    return value if kind == "I" else f"{value} as {INT_TYPES[kind]}"
+    return value if kind in {"I", "J"} else f"{value} as {INT_TYPES[kind]}"
 
 
-def _lower_block(block: list[list], depth: int, successors: list[int], returns: str) -> list[str]:
+def _fallible(method: dict) -> bool:
+    return any(opcode in _FALLIBLE for _, opcode, *_ in method["instructions"])
+
+
+def _lower_block(
+    block: list[list], depth: int, successors: list[int], returns: str, storage: str, fallible: bool,
+) -> list[str]:
     lines = []
+    wide = storage == "i64"
+
+    def narrow(value: str) -> str:
+        return f"({value} as i32)" if wide else value
+
+    def assign_int(destination: str, expression: str) -> None:
+        value = f"({expression}) as i64" if wide else expression
+        lines.append(f"{destination} = {value};")
+
     for _, opcode, *args in block:
         top = f"stack[{depth - 1}]"
         second = f"stack[{depth - 2}]"
-        if opcode == "const":
-            lines.append(f"stack[{depth}] = {_i32(args[0])};")
-        elif opcode == "load":
+        if opcode in {"const", "lconst"}:
+            lines.append(f"stack[{depth}] = {int(args[0])}_{storage};")
+        elif opcode in {"load", "lload"}:
             lines.append(f"stack[{depth}] = locals[{args[0]}];")
-        elif opcode == "store":
+        elif opcode in _STORES:
             lines.append(f"locals[{args[0]}] = {top};")
         elif opcode == "increment":
             local = f"locals[{args[0]}]"
-            lines.append(f"{local} = {local}.wrapping_add({_i32(args[1])});")
+            assign_int(local, f"{narrow(local)}.wrapping_add({args[1]}_i32)")
         elif opcode == "dup":
             lines.append(f"stack[{depth}] = {top};")
-        elif opcode in _ARITHMETIC:
-            expression = _ARITHMETIC[opcode].format(left=second, right=top)
-            lines.append(f"{second} = {expression};")
+        elif opcode in _ARITHMETIC or opcode in _LONG_BINARY:
+            if opcode in _FALLIBLE:
+                lines.extend([
+                    f"if {top} == 0 {{",
+                    "    return Err(JavaArithmeticError::DivisionByZero);",
+                    "}",
+                ])
+            if opcode in _LONG_BINARY:
+                expression = _ARITHMETIC[_LONG_BINARY[opcode]].format(left=second, right=top)
+                lines.append(f"{second} = {expression};")
+            else:
+                right = f"{top} as i32" if wide else top
+                expression = _ARITHMETIC[opcode].format(left=narrow(second), right=right)
+                assign_int(second, expression)
         elif opcode in _UNARY:
-            expression = _UNARY[opcode].format(value=top)
-            lines.append(f"{top} = {expression};")
+            assign_int(top, _UNARY[opcode].format(value=narrow(top)))
+        elif opcode == "lneg":
+            lines.append(f"{top} = {top}.wrapping_neg();")
+        elif opcode == "lcmp":
+            lines.append(f"{second} = ({second} > {top}) as i64 - ({second} < {top}) as i64;")
+        elif opcode == "l2i":
+            lines.append(f"{top} = {top} as i32 as i64;")
+        # Integer values are already sign-extended in wide storage, so i2l leaves the slot untouched.
         elif opcode == "if":
             left, right = (second, top) if args[1] else (top, "0")
             comparison = _COMPARISONS[args[0]]
             target, fallthrough = successors
             lines.append(f"block = if {left} {comparison} {right} {{ {target} }} else {{ {fallthrough} }};")
-        elif opcode == "return":
-            lines.append(f"return {_return_expression(top, returns)};")
+        elif opcode in _RETURNS:
+            expression = f"{top} as i32" if returns == "I" and wide else _return_expression(top, returns)
+            value = f"Ok({expression})" if fallible else expression
+            lines.append(f"return {value};")
         popped, pushed = _stack_effect(opcode, args)
-        depth += pushed - popped
+        depth += len(pushed) - len(popped)
     if successors and block[-1][1] != "if":
         lines.append(f"block = {successors[0]};")
     return lines
@@ -178,27 +255,38 @@ def _lower_method(class_name: str, method: dict) -> tuple[str, str]:
         offset: _successors(blocks[offset], offsets[index + 1] if index + 1 < len(offsets) else None)
         for index, offset in enumerate(offsets)
     }
-    depths = _verify(method, blocks, successors)
+    stacks = _verify(method, blocks, successors)
     name = _rust_name(class_name, method)
     signature = ", ".join(f"arg_{index}: {INT_TYPES[kind]}" for index, kind in enumerate(method["params"]))
+    long_used = "J" in method["params"] or any(
+        any("J" in kinds for kinds in _stack_effect(opcode, args))
+        for _, opcode, *args in method["instructions"]
+    )
+    storage = "i64" if long_used else "i32"
+    fallible = _fallible(method)
+    return_type = INT_TYPES[method["returns"]]
+    if fallible:
+        return_type = f"Result<{return_type}, JavaArithmeticError>"
     lines = [
         "#[allow(dead_code, unused_assignments, unused_mut, unused_variables)]",
-        f"pub fn {name}({signature}) -> {INT_TYPES[method['returns']]} {{",
-        f"    let mut stack = [0_i32; {method['stack']}];",
+        f"pub fn {name}({signature}) -> {return_type} {{",
+        f"    let mut stack = [0_{storage}; {method['stack']}];",
     ]
     if method["locals"]:
-        lines.append(f"    let mut locals = [0_i32; {method['locals']}];")
-        for index, kind in enumerate(method["params"]):
-            value = f"arg_{index}" if kind == "I" else f"arg_{index} as i32"
-            lines.append(f"    locals[{index}] = {value};")
+        lines.append(f"    let mut locals = [0_{storage}; {method['locals']}];")
+        for index, (slot, kind) in enumerate(_parameters(method)):
+            value = f"arg_{index}" if INT_TYPES[kind] == storage else f"arg_{index} as {storage}"
+            lines.append(f"    locals[{slot}] = {value};")
     if len(blocks) == 1 and not successors[0]:
-        lines.extend(f"    {line}" for line in _lower_block(blocks[0], 0, [], method["returns"]))
+        lines.extend(
+            f"    {line}" for line in _lower_block(blocks[0], 0, [], method["returns"], storage, fallible)
+        )
     else:
         lines.extend(["    let mut block = 0_u16;", "    loop {", "        match block {"])
         for offset, block in blocks.items():
             lines.append(f"            {offset} => {{")
             lines.extend(f"                {line}" for line in _lower_block(
-                block, depths[offset], successors[offset], method["returns"]
+                block, len(stacks[offset]), successors[offset], method["returns"], storage, fallible
             ))
             lines.append("            }")
         lines.extend(['            _ => unreachable!("validated JVM branch target"),', "        }", "    }"])
@@ -214,6 +302,7 @@ def translate(inspection: dict) -> dict:
     method_map = []
     sources = []
     bytes_used = 0
+    fallible_count = 0
     for cls in inspection["classes"]:
         for method in cls["methods"]:
             source_method = f"{cls['name'].replace('/', '.')}.{method['name']}{method['descriptor']}"
@@ -237,18 +326,28 @@ def translate(inspection: dict) -> dict:
                 continue
             sources.append(source)
             bytes_used += len(source)
+            fallible_count += _fallible(method)
             method_map.append({"java": source_method, "rust": name})
     if sources:
+        arithmetic_error = (
+            "/// A translated Java division or remainder threw ArithmeticException.\n"
+            "#[derive(Clone, Copy, Debug, Eq, PartialEq)]\n"
+            "pub enum JavaArithmeticError {\n"
+            "    DivisionByZero,\n"
+            "}\n\n"
+        ) if fallible_count else ""
         files["src/translated.rs"] = (
             "// Deterministic translation of selected static Java method bodies.\n"
             "// Review class initialization, callers, and game bindings before use.\n\n"
-            + "\n\n".join(sources) + "\n"
+            + arithmetic_error + "\n\n".join(sources) + "\n"
         )
         features.append({
             "name": "Static integer and boolean methods", "status": "translated",
             "detail": f"{len(sources)} method bodies lowered to standalone Rust functions. "
                       "Java class initialization, external callers and Horizon bindings need manual integration.",
         })
+        if fallible_count:
+            features[-1]["detail"] += f" {fallible_count} return Rust Result to preserve Java division-by-zero behavior."
     if reasons:
         features.append({
             "name": "Java method bodies needing manual work", "status": "unsupported",

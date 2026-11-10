@@ -92,7 +92,7 @@ def _pool(reader: Reader) -> tuple[tuple | None, ...]:
         elif tag == 4:
             pool.append((tag, reader.u4()))
         elif tag in {5, 6}:
-            pool.extend([(tag, bytes(reader.read(8))), None])
+            pool.extend([(tag, int.from_bytes(reader.read(8), "big", signed=tag == 5)), None])
         elif tag in {7, 8, 16, 19, 20}:
             pool.append((tag, reader.u2()))
         elif tag in {9, 10, 11, 12, 17, 18}:
@@ -274,14 +274,24 @@ def exact_fabric_client_message(cls: ClassFile) -> str | None:
 
 
 _INT_BINOP = {
-    0x60: "add", 0x64: "sub", 0x68: "mul",
+    0x60: "add", 0x64: "sub", 0x68: "mul", 0x6C: "idiv", 0x70: "irem",
     0x78: "shl", 0x7A: "shr", 0x7C: "ushr",
     0x7E: "and", 0x80: "or", 0x82: "xor",
 }
-_INT_UNOP = {0x74: "neg", 0x91: "narrow_byte", 0x92: "narrow_char", 0x93: "narrow_short"}
+_OTHER_NUMERIC = {
+    0x61: "ladd", 0x65: "lsub", 0x69: "lmul", 0x6D: "ldiv", 0x71: "lrem",
+    0x74: "neg", 0x75: "lneg", 0x85: "i2l", 0x88: "l2i",
+    0x91: "narrow_byte", 0x92: "narrow_char", 0x93: "narrow_short", 0x94: "lcmp",
+}
+_LOCAL_EXPLICIT = {0x15: "load", 0x16: "lload", 0x36: "store", 0x37: "lstore"}
+_LOCAL_IMPLICIT = {
+    base + index: (operation, index)
+    for base, operation in ((0x1A, "load"), (0x1E, "lload"), (0x3B, "store"), (0x3F, "lstore"))
+    for index in range(4)
+}
 _COMPARISONS = ("eq", "ne", "lt", "ge", "gt", "le")
 _INT_MATH = {("abs", "(I)I"), ("min", "(II)I"), ("max", "(II)I")}
-INT_TYPES = {"I": "i32", "B": "i8", "S": "i16", "C": "u16", "Z": "bool"}
+INT_TYPES = {"I": "i32", "J": "i64", "B": "i8", "S": "i16", "C": "u16", "Z": "bool"}
 
 
 def integer_method(cls: ClassFile, method: Method) -> dict:
@@ -304,7 +314,7 @@ def integer_method(cls: ClassFile, method: Method) -> dict:
             not method.descriptor.startswith("(") or not separator
             or returns not in INT_TYPES or any(kind not in INT_TYPES for kind in parameters)
         ):
-            raise ValueError("Only primitive int, byte, short, char and boolean signatures are lowered.")
+            raise ValueError("Only primitive int, long, byte, short, char and boolean signatures are lowered.")
         if len(method.code) > MAX_METHOD_CODE or method.locals > 32 or method.stack > 32:
             raise ValueError("Method exceeds the translation size or complexity limits.")
         signature = {**result, "params": parameters, "returns": returns, "locals": method.locals, "stack": method.stack}
@@ -331,23 +341,24 @@ def _decode_integer(pool: tuple[tuple | None, ...], code: bytes, *, draft: bool 
             instruction = ["nop"]
         elif 0x02 <= opcode <= 0x08:
             instruction = ["const", opcode - 0x03]
+        elif opcode in {0x09, 0x0A}:
+            instruction = ["lconst", str(opcode - 0x09)]
         elif opcode in {0x10, 0x11}:
             instruction = ["const", int.from_bytes(reader.read(opcode - 0x0F), signed=True)]
         elif opcode in {0x12, 0x13}:
             index = int.from_bytes(reader.read(opcode - 0x11))
             instruction = ["const", constant(pool, index, 3)[1]]
-        elif opcode in {0x15, 0x36}:
-            instruction = ["load" if opcode == 0x15 else "store", reader.u1()]
-        elif 0x1A <= opcode <= 0x1D:
-            instruction = ["load", opcode - 0x1A]
-        elif 0x3B <= opcode <= 0x3E:
-            instruction = ["store", opcode - 0x3B]
+        elif opcode == 0x14:
+            # JSON consumers include JavaScript, whose numbers cannot preserve every JVM long.
+            instruction = ["lconst", str(constant(pool, reader.u2(), 5)[1])]
+        elif opcode in _LOCAL_EXPLICIT:
+            instruction = [_LOCAL_EXPLICIT[opcode], reader.u1()]
+        elif opcode in _LOCAL_IMPLICIT:
+            instruction = list(_LOCAL_IMPLICIT[opcode])
         elif opcode in _INT_BINOP:
             instruction = [_INT_BINOP[opcode]]
-        elif draft and opcode in {0x6C, 0x70}:
-            instruction = ["idiv" if opcode == 0x6C else "irem"]
-        elif opcode in _INT_UNOP:
-            instruction = [_INT_UNOP[opcode]]
+        elif opcode in _OTHER_NUMERIC:
+            instruction = [_OTHER_NUMERIC[opcode]]
         elif opcode == 0x84:
             instruction = ["increment", reader.u1(), int.from_bytes(reader.read(1), signed=True)]
         elif 0x99 <= opcode <= 0xA4:
@@ -355,8 +366,8 @@ def _decode_integer(pool: tuple[tuple | None, ...], code: bytes, *, draft: bool 
             instruction = ["if", cmp, opcode >= 0x9F, offset + int.from_bytes(reader.read(2), signed=True)]
         elif opcode in {0xA7, 0xC8}:
             instruction = ["goto", offset + int.from_bytes(reader.read(2 if opcode == 0xA7 else 4), signed=True)]
-        elif opcode == 0xAC:
-            instruction = ["return"]
+        elif opcode in {0xAC, 0xAD}:
+            instruction = ["return" if opcode == 0xAC else "lreturn"]
         elif opcode == 0xB8:
             owner, name, descriptor = _member_ref(pool, reader.u2(), 10)
             if owner != "java/lang/Math" or (name, descriptor) not in _INT_MATH:

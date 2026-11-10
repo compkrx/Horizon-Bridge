@@ -12,6 +12,10 @@ Open the GitHub Pages site, add up to 12 JARs, confirm conversion rights, and st
 
 The browser produces standalone Rust, a pinned native source project for the supported Fabric startup pattern, and candidate `.hmod` bundles for supported shaped or shapeless recipes. Use the self-hosted edition to validate native `.hnmod` output with Horizon’s official tools. See the [GitHub Pages build and capabilities](docs/PAGES.md).
 
+Search the **Versions** controls by date, Minecraft version, or commit hash. Requeue a JAR to run it again with the currently selected target and mode. Completed results show which target and mode they used.
+
+Open **Packages** to inspect an existing `.hnmod` locally. Compare its Horizon and Mixins pins, review declared injections and bundled notices, and download a JSON report with its SHA-256 fingerprint. Run Horizon’s official package checker and test the package separately before installing it.
+
 ## Self-hosted edition
 
 The web app queues bounded, static inspection and conversion jobs. A separate processor reconstructs Java when Vineflower is configured, lowers a small JVM instruction subset to Rust, and applies verified Horizon-specific mappings. Each result includes `PORTING.md`, a JSON report, and a reviewable source archive. A native or content bundle appears only when its applicable official tools succeed. The self-hosted build image targets Horizon Nightly `fdc87ae` (Minecraft 26.3, hook API 411).

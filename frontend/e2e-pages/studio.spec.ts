@@ -68,7 +68,7 @@ test('older targets move to the archive and conversion uses the chosen revision'
 test('malformed input is rejected on a mobile viewport', async ({page}) => {
   await page.setViewportSize({width: 390, height: 844})
   await page.goto('./')
-  await page.locator('input[type=file]').setInputFiles({name: 'broken.jar', mimeType: 'application/java-archive', buffer: Buffer.from('this is not a zip')})
+  await page.locator('input[accept=".jar"]').setInputFiles({name: 'broken.jar', mimeType: 'application/java-archive', buffer: Buffer.from('this is not a zip')})
   await page.getByRole('checkbox', {name: /I own/}).check()
   await page.getByRole('button', {name: 'Convert 1 JAR'}).click()
   await expect(page.getByRole('alert')).toContainText(/JAR|archive|ZIP/i)

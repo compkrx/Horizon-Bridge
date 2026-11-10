@@ -164,13 +164,13 @@ class JarArchive:
         return data
 
 
-def _entry_count(stream: BinaryIO, size: int) -> int:
+def _entry_count(stream: BinaryIO, size: int, kind: str) -> int:
     """Bound the central directory before ZipFile constructs its index."""
     stream.seek(max(0, size - 65535 - _EOCD.size))
     tail = stream.read()
     position = tail.rfind(b"PK\x05\x06")
     if position < 0 or len(tail) - position < _EOCD.size:
-        raise ValueError("The JAR has no readable ZIP directory.")
+        raise ValueError(f"The {kind} has no readable ZIP directory.")
     _, disk, start_disk, count_disk, count, directory_size, directory_offset, comment_size = _EOCD.unpack_from(tail, position)
     if (
         disk or start_disk or count != count_disk or not 1 <= count <= MAX_ENTRIES
@@ -178,24 +178,24 @@ def _entry_count(stream: BinaryIO, size: int) -> int:
         or directory_offset + directory_size > size - _EOCD.size
         or len(tail) - position != _EOCD.size + comment_size
     ):
-        raise ValueError("The JAR has an invalid or excessive ZIP directory.")
+        raise ValueError(f"The {kind} has an invalid or excessive ZIP directory.")
     return count
 
 
 @contextmanager
-def open_jar(path: Path, *, verify: bool = True) -> Iterator[JarArchive]:
+def open_jar(path: Path, *, verify: bool = True, kind: str = "JAR") -> Iterator[JarArchive]:
     try:
         size = path.stat().st_size
         if size > MAX_UPLOAD:
-            raise ValueError("JAR exceeds the 32 MiB upload limit.")
+            raise ValueError(f"{kind} exceeds the 32 MiB upload limit.")
         with path.open("rb") as stream:
             if stream.read(4) != b"PK\x03\x04":
-                raise ValueError("The upload is not a JAR archive.")
-            expected_count = _entry_count(stream, size)
+                raise ValueError(f"The input is not a {kind} archive.")
+            expected_count = _entry_count(stream, size, kind)
             with zipfile.ZipFile(stream) as archive:
                 jar = JarArchive(archive, stream, expected_count)
                 if verify:
                     jar.verify()
                 yield jar
     except _ZIP_ERRORS as error:
-        raise ValueError("The JAR is malformed or failed its integrity check.") from error
+        raise ValueError(f"The {kind} is malformed or failed its integrity check.") from error

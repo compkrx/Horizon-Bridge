@@ -1,4 +1,4 @@
-"""Inspect and convert authorized JARs from a local terminal."""
+"""Inspect Java JARs and Horizon packages or convert authorized JARs locally."""
 
 import argparse
 import json
@@ -7,23 +7,28 @@ from pathlib import Path
 
 from .browser import convert_browser
 from .inspect_jar import inspect_jar
+from .native_package import inspect_native_package
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    inspect = commands.add_parser("inspect", help="Print loader metadata and coverage as JSON.")
-    inspect.add_argument("jar", type=Path)
+    inspect = commands.add_parser("inspect", help="Print JAR metadata or a native package inspection as JSON.")
+    inspect.add_argument("archive", type=Path)
     convert = commands.add_parser("convert", help="Generate portable source, reports, and recipe candidates.")
     convert.add_argument("jars", type=Path, nargs="+")
     convert.add_argument("--output", required=True, type=Path)
     convert.add_argument("--authorized", required=True, action="store_true", help="Confirm conversion rights for these JARs.")
     convert.add_argument("--target", help="Nightly catalog ID or full Horizon revision. Defaults to the catalog's current Nightly.")
+    convert.add_argument("--mode", choices=("all", "basic", "inspect"), default="all", help="Choose all supported ports, basic Rust, or inspection only.")
     commands.add_parser("targets", help="Print all recorded Nightly targets as JSON.")
     args = parser.parse_args()
     try:
         if args.command == "inspect":
-            data = inspect_jar(args.jar)
+            if args.archive.suffix.lower() == ".hnmod":
+                print(json.dumps(inspect_native_package(args.archive), indent=2))
+                return 0
+            data = inspect_jar(args.archive)
             keys = ("metadata", "classCount", "methodCount", "resourceCount", "features", "warnings", "missingDependencies")
             print(json.dumps({key: data[key] for key in keys}, indent=2))
             return 0
@@ -42,7 +47,7 @@ def main():
             name = re.sub(r"[^A-Za-z0-9_-]", "_", jar.stem)[:60] or "mod"
             destination = args.output / f"{index:02d}-{name}"
             try:
-                result = convert_browser(jar, destination, runtime="cli", target_info=selected)
+                result = convert_browser(jar, destination, runtime="cli", target_info=selected, mode=args.mode)
                 print(f"{jar.name}: {result['report']['classification']} -> {destination}")
             except (ValueError, OSError) as exc:
                 print(f"{jar.name}: {exc}")

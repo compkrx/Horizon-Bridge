@@ -3,8 +3,8 @@ import { ArrowDownToLine, Cpu, LoaderCircle, Sparkles } from 'lucide-react'
 import { displayError } from './format'
 import type { RewriteChoice, RewriteRun, RustDraft } from './rewrite'
 
-export function RewritePanel({choices, model, run, device, unavailable}: {
-  choices: RewriteChoice[]; model: string; run: RewriteRun; device?: boolean; unavailable?: string
+export function RewritePanel({choices, model, run, device, unavailable, preview}: {
+  choices: RewriteChoice[]; model: string; run: RewriteRun; device?: boolean; unavailable?: string; preview?: (id: string) => string | undefined
 }) {
   const selectId = useId()
   const [choiceId, setChoiceId] = useState('')
@@ -14,6 +14,7 @@ export function RewritePanel({choices, model, run, device, unavailable}: {
   const [keepAwake, setKeepAwake] = useState(false)
   const active = useRef<AbortController | null>(null)
   const current = choices.find((entry) => entry.id === choiceId) ?? choices[0]
+  const modelInput = current && preview?.(current.id)
   useEffect(() => () => active.current?.abort(), [])
 
   async function rewrite() {
@@ -54,6 +55,7 @@ export function RewritePanel({choices, model, run, device, unavailable}: {
       <select id={selectId} className="relay-select" value={current.id} disabled={!!status} onChange={(event) => {setChoiceId(event.target.value); setDraft(undefined); setError('')}}>
         {choices.map((entry) => <option key={entry.id} value={entry.id}>{entry.label} · {entry.language}</option>)}
       </select>
+      {modelInput && <details className="browser-inventory"><summary>View the JVM input</summary><pre className="break-all whitespace-pre-wrap mt-2" tabIndex={0}>{modelInput}</pre></details>}
       {device && 'wakeLock' in navigator && <label className="permission mt-3"><input type="checkbox" checked={keepAwake} disabled={!!status} onChange={(event) => setKeepAwake(event.target.checked)} /> Keep the screen awake during this draft</label>}
       <div className="browser-actions">
         <button className="btn accent" type="button" disabled={!!status} onClick={() => void rewrite()}>{status ? <LoaderCircle size={17} className="spin" /> : <Sparkles size={17} />} Generate Rust draft</button>

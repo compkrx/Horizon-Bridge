@@ -10,13 +10,14 @@ The [HorizonRelay studio](https://horizonrelay.github.io/) serves static assets.
 | Files and reports | Source ZIP, resource inventory, highlighted source, JSON | Source ZIP, reports, and authenticated previews |
 | Native Fabric startup conversion | Pinned Rust and mixin source | Official mixin application, Cargo checks, and `.hnmod` packaging |
 | Content conversion | Candidate `.hmod` for supported shaped or shapeless vanilla-item recipes | Official Horizon asset conversion tools and package validation |
-| Java reconstruction and model suggestions | — | Optional Vineflower and administrator-configured Ollama |
+| Existing `.hnmod` inspection | Revision pins, declared mixins, notices and SHA-256 | Same inspection through the offline CLI |
+| AI Rust drafts | WebGPU on the selected JVM method | Optional Vineflower and an administrator-configured inference server |
 
 Browser recipe export accepts only supported 26.3 JSON forms within the source mod namespace. It skips tags, ingredient alternatives, Java registries, result components, and unknown recipe fields. The browser reports these packages as candidates because the official Horizon checker and game runtime are available separately. Inspect the exported manifest and run `cargo horizon-mod check <bundle.hmod> --json` with the pinned toolchain before testing the recipes.
 
 ## Choosing a Nightly
 
-The target picker defaults to Horizon's current published Nightly. It shows the last 30 UTC calendar days, including today. A day can contain several builds or none. Enable **Show archived Nightlies** to select older targets, or download the complete catalog as JSON. Each report, porting guide, and generated native project records the exact selected commit. The native startup template is available only for revisions with the required source signatures and a known mixins revision. The self-hosted compiler image targets the revision documented in [Horizon integration](HORIZON.md).
+The target picker defaults to Horizon's current published Nightly. It shows the last 30 UTC calendar days, including today. A day can contain several builds or none. Enable **Show archived Nightlies** or search by hash, date, or Minecraft version to select older targets. The catalog download includes all records. Each report, porting guide, and generated native project records the exact selected commit. The native startup template is available only for revisions with the required source signatures and a known mixins revision. The self-hosted compiler image targets the revision documented in [Horizon integration](HORIZON.md).
 
 GitHub Actions checks upstream hourly and deploys when the catalog changes. The refresh merges immutable `nightly-source` tags, surviving dated release tags, confirmed early announcements, and records from the previous deployment. The archive retains dates, commit IDs, and source links. Horizon controls binary downloads and may prune older release files. [Horizon release and retention policy](https://github.com/horizon-rust/horizon/blob/main/docs/release-flow.md)
 
@@ -45,8 +46,10 @@ From the repository root, run the same portable rules with Python 3.11 or later.
 
 ```sh
 python -m engine.horizonrelay inspect mod.jar
+python -m engine.horizonrelay inspect mod.hnmod
 python -m engine.horizonrelay targets
 python -m engine.horizonrelay convert --authorized --output converted mod.jar recipes.jar
+python -m engine.horizonrelay convert --authorized --mode basic --output basic mod.jar
 ```
 
 Pass `--target` with a catalog ID or full Horizon commit to choose a specific Nightly.

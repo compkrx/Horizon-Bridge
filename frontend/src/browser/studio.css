@@ -31,6 +31,14 @@
 .nightly-picker select { width: 100%; min-width: 0; padding: 9px; color: #eef7f0; border: 1px solid #385346; border-radius: 8px; background: #111b15; }
 .nightly-picker a { color: #a3edbd; font-size: .82rem; text-decoration: underline; }
 .nightly-meta .permission, .nightly-info { color: #aebfb4; font-size: .83rem; }
+.nightly-picker .nightly-download { text-decoration: none; }
+.nightly-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.nightly-search { display: flex; align-items: center; gap: 8px; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; background: var(--panel-deep); color: var(--muted); }
+.nightly-search:focus-within { border-color: var(--green); }
+.nightly-search input { min-width: 0; width: 100%; padding: 8px 0; color: var(--white); font-size: .87rem; }
+.nightly-search input::placeholder { color: var(--muted); }
+.nightly-search input:focus-visible { outline: none; }
+.nightly-search-row button:disabled { opacity: .55; }
 .browser-permission { display: flex; align-items: baseline; gap: 8px; margin-top: 14px; }
 .browser-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; }
 .browser-results { margin-top: 32px; scroll-margin-top: 24px; }
