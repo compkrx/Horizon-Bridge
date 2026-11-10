@@ -34,10 +34,12 @@ test('requeues a completed JAR for a new target and mode while keeping prior app
   await queue.getByRole('button', {name: 'Remove asset.jar'}).click()
   await expect(permission).toBeChecked()
 
+  await page.getByRole('link', {name: 'Choose version'}).click()
   if (await picker.locator(`option[value="${second.id}"]`).count() === 0) {
     await page.getByRole('checkbox', {name: /Show archived Nightlies/}).check()
   }
   await picker.selectOption(second.id)
+  await page.getByRole('link', {name: 'Back to Studio'}).click()
   await page.getByRole('combobox', {name: 'Conversion mode'}).selectOption('inspect')
   await expect(logic).toContainText('Requeue to apply the selected settings.')
   expect((await readReport(page)).target.id).toBe(first.id)

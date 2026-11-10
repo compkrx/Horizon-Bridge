@@ -7,7 +7,7 @@ test('static Pages processes a multi-JAR batch without network uploads', async (
   page.on('request', (request) => {
     if (request.method() !== 'GET' || new URL(request.url()).origin !== 'http://127.0.0.1:5175') outbound.push(request.url())
   })
-  await page.goto('./')
+  await page.goto('./#/versions')
   const picker = page.getByRole('combobox', {name: 'Horizon Nightly target'})
   await expect(picker).toBeEnabled()
   const catalog = await (await page.request.get('./browser/nightlies.json')).json() as NightlyCatalog
@@ -17,6 +17,7 @@ test('static Pages processes a multi-JAR batch without network uploads', async (
     await page.getByRole('checkbox', {name: /Show archived Nightlies/}).check()
   }
   await picker.selectOption(known.id)
+  await page.getByRole('link', {name: 'Back to Studio'}).click()
   await page.getByRole('button', {name: 'Java arithmetic', exact: true}).click()
   await expect(page.getByText('logic.jar', {exact: true})).toBeVisible()
   await page.getByRole('button', {name: 'Crafting recipe', exact: true}).click()
@@ -47,12 +48,13 @@ test('older targets move to the archive and conversion uses the chosen revision'
   const catalog = await (await page.request.get('./browser/nightlies.json')).json() as NightlyCatalog
   const old = catalog.targets.at(-1)!
   await page.clock.setFixedTime(new Date(Date.parse(old.date) + 30 * 86_400_000 + 3_600_000))
-  await page.goto('./')
+  await page.goto('./#/versions')
   const picker = page.getByRole('combobox', {name: 'Horizon Nightly target'})
   await expect(picker).toBeEnabled()
   await expect(picker.locator(`option[value="${old.id}"]`)).toHaveCount(0)
   await page.getByRole('checkbox', {name: /Show archived Nightlies/}).check()
   await picker.selectOption(old.id)
+  await page.getByRole('link', {name: 'Back to Studio'}).click()
   await page.getByRole('button', {name: 'Java arithmetic', exact: true}).click()
   await expect(page.getByText('logic.jar', {exact: true})).toBeVisible()
   await page.getByRole('checkbox', {name: /I own/}).check()
@@ -89,6 +91,10 @@ test('module board highlights capabilities and basic mode exports Rust without r
   await page.getByRole('checkbox', {name: /I own/}).check()
   await page.getByRole('button', {name: 'Convert 1 JAR'}).click()
   await expect(page.getByRole('button', {name: 'src/translated.rs', exact: true})).toBeVisible()
-  await expect(page.getByRole('heading', {name: 'On-device AI rewrite'})).toBeVisible()
   await expect(page.getByRole('button', {name: 'Download Horizon asset mod'})).toHaveCount(0)
+  await page.getByRole('link', {name: 'Open result in AI'}).click()
+  await expect(page.getByRole('heading', {name: 'On-device AI rewrite'})).toBeVisible()
+  await expect(page.getByRole('combobox', {name: 'JAR to use for the draft'}).locator('option:checked')).toContainText('logic.jar')
+  await page.getByRole('navigation', {name: 'Primary'}).getByRole('link', {name: 'Studio', exact: true}).click()
+  await expect(page.getByRole('button', {name: 'src/translated.rs', exact: true})).toBeVisible()
 })

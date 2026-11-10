@@ -1,22 +1,23 @@
 import { useState, type PointerEvent } from 'react'
 import { Blocks, BrainCircuit, GitBranch } from 'lucide-react'
+import { pageHref } from './pages'
 
 const groups = [
   {label: 'Converter', Icon: Blocks, modules: [
-    ['JAR inspector', 'Read loader metadata and bytecode without launching the mod.', '#studio'],
-    ['Basic functions', 'Lower supported arithmetic and control flow to Rust.', '#conversion-mode'],
-    ['Recipe exports', 'Package supported crafting recipes into a candidate Horizon bundle.', '#studio'],
-    ['Source explorer', 'Read generated Rust and reports before downloading them.', '#browser-results'],
+    ['JAR inspector', 'Read loader metadata and bytecode without launching the mod.', pageHref('studio', 'studio')],
+    ['Basic functions', 'Lower supported arithmetic and control flow to Rust.', pageHref('studio', 'conversion-mode')],
+    ['Recipe exports', 'Package supported crafting recipes into a candidate Horizon bundle.', pageHref('studio', 'studio')],
+    ['Source explorer', 'Read generated Rust and reports before downloading them.', pageHref('studio', 'browser-results')],
   ]},
   {label: 'Rewrite', Icon: BrainCircuit, modules: [
-    ['Device model', 'Use this device’s GPU to draft a Rust function in a browser worker.', '#guide-ai'],
-    ['Self-hosted AI', 'Connect Ollama or a compatible inference server to rewrite selected Java code.', '#guide-local'],
-    ['Review drafts', 'Compare AI-generated Rust with its source before compiling it.', '#guide-ai'],
+    ['Device model', 'Use this device’s GPU to draft a Rust function in a browser worker.', pageHref('ai')],
+    ['Self-hosted AI', 'Connect Ollama or a compatible inference server to rewrite selected Java code.', pageHref('ai', 'self-hosted')],
+    ['Review drafts', 'Compare AI-generated Rust with its source before compiling it.', pageHref('guide', 'guide-ai')],
   ]},
   {label: 'Horizon', Icon: GitBranch, modules: [
-    ['Nightly targets', 'Choose the exact Horizon revision the conversion should target.', '#versions'],
-    ['Archive', 'Find older Nightly targets and their original source snapshots.', '#versions'],
-    ['Native builds', 'Use the pinned self-hosted toolchain to validate native packages.', '#guide-local'],
+    ['Nightly targets', 'Choose the exact Horizon revision the conversion should target.', pageHref('versions')],
+    ['Archive', 'Find older Nightly targets and their original source snapshots.', pageHref('versions')],
+    ['Native packages', 'Inspect the source pins and mixins declared by an existing Horizon package.', pageHref('packages')],
   ]},
 ] as const
 
@@ -35,7 +36,7 @@ export function ModuleBoard({hasResults}: {hasResults: boolean}) {
     <div className="module-columns">{groups.map(({label, Icon, modules}) => <section key={label} className="module-group">
       <h2><Icon size={16} /> {label}</h2>
       <ul>{modules.map(([name, description, path]) => <li key={name}>
-        <a href={path === '#browser-results' && !hasResults ? '#studio' : path}
+        <a href={path === pageHref('studio', 'browser-results') && !hasResults ? pageHref('studio', 'studio') : path}
           onPointerEnter={() => setDetail(description)} onFocus={() => setDetail(description)} aria-label={`${name} — ${description}`}>{name}</a>
       </li>)}</ul>
     </section>)}</div>

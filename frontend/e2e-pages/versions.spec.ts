@@ -6,7 +6,7 @@ test('Nightly search includes archived hashes and dates without changing the tar
   const catalog = await (await page.request.get('./browser/nightlies.json')).json() as NightlyCatalog
   const old = catalog.targets.at(-1)!
   await page.clock.setFixedTime(new Date(Date.parse(old.date) + 30 * 86_400_000 + 3_600_000))
-  await page.goto('./')
+  await page.goto('./#/versions')
   const panel = page.getByRole('region', {name: 'Conversion target'})
   const picker = panel.getByRole('combobox', {name: 'Horizon Nightly target'})
   const search = panel.getByRole('searchbox', {name: 'Search Nightlies'})

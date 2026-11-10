@@ -3,6 +3,13 @@
 .browser-nav a, .browser-main aside a, .browser-main ~ footer a { display: inline-flex; align-items: center; gap: 6px; }
 .browser-nav a:hover, .browser-main aside a:hover, .browser-main ~ footer a:hover { color: #a8fac6; }
 .browser-main { padding-bottom: 48px; }
+.browser-main:focus { outline: none; }
+.browser-screen[hidden] { display: none; }
+.browser-page-intro { padding: clamp(28px, 5vw, 58px) 0 22px; }
+.browser-page-intro h1 { color: var(--white); font-size: clamp(2rem, 4.5vw, 3.65rem); font-weight: 780; letter-spacing: -.045em; line-height: 1.1; }
+.browser-page-intro p { color: var(--muted); max-width: 68ch; margin-top: 9px; }
+.browser-page-intro + .browser-compat, .browser-page-intro + .panel .nightly-picker { margin-top: 0; }
+.browser-screen > .panel + .panel { margin-top: 16px; }
 .browser-hero { display: grid; grid-template-columns: 1.24fr 1fr; gap: clamp(20px, 5vw, 72px); align-items: center; padding: 72px 0 58px; }
 .browser-hero h1 { color: #eef7f0; font-size: clamp(2.8rem, 6vw, 5.5rem); line-height: .98; letter-spacing: -.075em; font-weight: 780; margin: 16px 0 22px; }
 .browser-hero h1 em { font-style: normal; color: #9ff5bc; }
@@ -26,6 +33,7 @@
 .batch-list strong, .batch-list p { overflow-wrap: anywhere; }
 .batch-list p { color: #aebfb4; font-size: .8rem; }
 .nightly-picker { display: grid; gap: 8px; margin-top: 18px; }
+.studio-target { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding-top: 14px; margin-top: 18px; border-top: 1px solid var(--line); }
 .nightly-heading, .nightly-meta { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
 .nightly-heading > label { font-weight: 650; }
 .nightly-picker select { width: 100%; min-width: 0; padding: 9px; color: #eef7f0; border: 1px solid #385346; border-radius: 8px; background: #111b15; }

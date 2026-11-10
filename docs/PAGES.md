@@ -2,6 +2,8 @@
 
 The [HorizonRelay studio](https://horizonrelay.github.io/) serves static assets. It starts a WebAssembly worker on demand and performs conversion on the device. The site downloads the worker, the pinned Pyodide runtime, and the Python modules from the same origin. The three optional examples are original fixtures generated at build time. The studio makes no upload requests, stores no JARs across sessions, and needs no service account or API key.
 
+Studio, Versions, Packages, AI, Guide, and Look each have their own link. Switching pages keeps the current tab’s queue and results. Reloading starts a new conversion session.
+
 ## Capabilities
 
 | Feature | Browser studio | Self-hosted edition |

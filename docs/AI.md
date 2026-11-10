@@ -4,7 +4,7 @@
 
 1. Open the studio, choose a Nightly, and add a JAR you can port or a built-in example.
 2. Select **Basic functions only** for the rule-based Rust generator, **All supported conversions** to include recipe and recognized startup ports, or **Inspect only** for an inventory.
-3. Start the conversion and open its result. Under **On-device AI rewrite**, choose a method, use **View the JVM input** to see the decoded instructions, then click **Generate Rust draft**.
+3. Start the conversion, then open **AI** or click **Open result in AI** on the result. Choose the JAR and method, use **View the JVM input** to see the decoded instructions, then click **Generate Rust draft**.
 4. Review the draft, then download the `.rs` file. Compare it with the original method and the target Nightly's source before integrating it into a project.
 
 The browser uses WebLLM and a small Qwen2.5-Coder model in a dedicated WebGPU worker. It downloads model weights from Hugging Face and a runtime from MLC on the first run, then uses the device’s GPU and memory. Method text and JAR contents stay on the device. The model cache belongs to the browser and can be removed through site data settings.
