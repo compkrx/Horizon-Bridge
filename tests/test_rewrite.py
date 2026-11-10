@@ -4,10 +4,29 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from fastapi.testclient import TestClient
 
+from api.local_ai import generate_draft
 from api.main import app
 from api.worker import process_job
 from engine.horizonrelay.browser import convert_browser
 from make_fixtures import build
+
+
+def test_incomplete_model_json_retries_once_and_flags_java_escapes():
+    calls = []
+
+    class Model:
+        def chat(self, messages, *, draft=False):
+            calls.append((messages, draft))
+            if draft:
+                return '{"rust":"fn greeting()'
+            return '```rust\n' + r'fn greeting() { println!("\u0041"); }' + '\n```'
+
+    rust, notes = generate_draft(Model(), {'language': 'Java', 'source': 'class Greeting {}'})
+    assert rust.startswith('fn greeting()')
+    assert 'Java-style Unicode escape' in notes[0]
+    assert 'covers one function' in notes[1]
+    assert [draft for _, draft in calls] == [True, False]
+    assert calls[0][0][-1] == calls[1][0][-1]
 
 
 def test_rules_only_modes_and_rewrite_evidence(tmp_path):

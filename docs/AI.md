@@ -31,5 +31,5 @@ Use `HB_AI_PROVIDER=openai-compatible`, set `HB_AI_URL` to the server’s `/v1` 
 
 - Only the selected file or method and its target are sent to a configured inference server. The on-device browser option sends neither JARs nor code to a server.
 - AI drafts are separate downloads. The app displays the proposed code and assumptions as text. It never executes or includes a draft automatically in an installable mod.
-- Small models can misread control flow, Java overflow, or game-specific APIs. Test the generated Rust against the original behavior and the exact Horizon revision before use.
+- Small models can misread control flow, Java overflow, or game-specific APIs. If a self-hosted model returns incomplete structured output, the app tries once more and asks for a single function. Review any draft notices and test against the original behavior and the exact Horizon revision before use.
 - Server drafts follow the conversion’s retention window. Browser drafts are held in the current tab until you download or clear them.
