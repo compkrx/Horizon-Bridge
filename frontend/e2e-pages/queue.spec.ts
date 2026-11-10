@@ -35,6 +35,7 @@ test('requeues a completed JAR for a new target and mode while keeping prior app
   await expect(permission).toBeChecked()
 
   await page.getByRole('link', {name: 'Choose version'}).click()
+  await expect(picker).toBeEnabled()
   if (await picker.locator(`option[value="${second.id}"]`).count() === 0) {
     await page.getByRole('checkbox', {name: /Show archived Nightlies/}).check()
   }
